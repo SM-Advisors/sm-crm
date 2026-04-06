@@ -41,14 +41,20 @@ export function useCompany(id: string) {
           *,
           company_tags(tag:tags(id, name, color)),
           contacts(id, first_name, last_name, title, email, phone, last_contacted_at, last_contact_type, contact_categories(category)),
-          interactions(*),
-          document_links(*)
+          interactions(*)
         `)
         .eq("id", id)
         .single();
       if (error) throw error;
 
       const d = data as unknown as Record<string, unknown>;
+
+      // document_links is polymorphic (no FK) — fetch separately
+      const { data: docLinks } = await supabase
+        .from("document_links")
+        .select("*")
+        .eq("linkable_type", "company")
+        .eq("linkable_id", id);
 
       const { data: salesDeals } = await supabase
         .from("sales_deals")
@@ -76,7 +82,7 @@ export function useCompany(id: string) {
           categories: ((c.contact_categories as { category: string }[] | null) ?? []).map((cc) => cc.category),
         })),
         interactions: (d.interactions as unknown[] | null) ?? [],
-        document_links: (d.document_links as unknown[] | null) ?? [],
+        document_links: docLinks ?? [],
         sales_deals: salesDeals ?? [],
         delivery_engagements: engagements ?? [],
         invoices: invoices ?? [],

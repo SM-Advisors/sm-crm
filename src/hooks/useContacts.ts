@@ -41,8 +41,7 @@ export function useContact(id: string) {
           contact_categories(category),
           contact_tags(tag:tags(id, name, color)),
           interactions(*),
-          agent_context_notes(*),
-          document_links(*)
+          agent_context_notes(*)
         `)
         .eq("id", id)
         .single();
@@ -50,6 +49,13 @@ export function useContact(id: string) {
       if (error) throw error;
 
       const d = data as unknown as Record<string, unknown>;
+
+      // document_links is polymorphic (no FK) — fetch separately
+      const { data: docLinks } = await supabase
+        .from("document_links")
+        .select("*")
+        .eq("linkable_type", "contact")
+        .eq("linkable_id", id);
 
       const { data: salesDeals } = await supabase
         .from("sales_deals")
@@ -71,7 +77,7 @@ export function useContact(id: string) {
         interactions: (d.interactions as unknown[] | null) ?? [],
         sales_deals: salesDeals ?? [],
         delivery_engagements: deliveryEngagements ?? [],
-        document_links: (d.document_links as unknown[] | null) ?? [],
+        document_links: docLinks ?? [],
         agent_context_notes: (d.agent_context_notes as unknown[] | null) ?? [],
       } as unknown as ContactWithDetails;
     },
