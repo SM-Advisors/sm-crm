@@ -7,23 +7,33 @@ import { AppLayout } from "@/components/AppLayout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
-import Contacts from "./pages/Contacts";
-import Companies from "./pages/Companies";
-import SalesPipeline from "./pages/SalesPipeline";
-import DeliveryPipeline from "./pages/DeliveryPipeline";
-import Invoices from "./pages/Invoices";
-import Reports from "./pages/Reports";
-import AgentLog from "./pages/AgentLog";
+import ContactsPage from "./pages/Contacts";
+import ContactDetailPage from "./pages/ContactDetail";
+import CompaniesPage from "./pages/Companies";
+import CompanyDetailPage from "./pages/CompanyDetail";
+import SalesPipelinePage from "./pages/SalesPipeline";
+import DeliveryPipelinePage from "./pages/DeliveryPipeline";
+import InvoicesPage from "./pages/Invoices";
+import InvoiceDetailPage from "./pages/InvoiceDetail";
+import ReportsPage from "./pages/Reports";
+import AgentLogPage from "./pages/AgentLog";
 import SettingsPage from "./pages/SettingsPage";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 2, // 2 minutes
+      retry: 1,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
-      <Sonner />
+      <Sonner richColors position="top-right" />
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
@@ -35,15 +45,34 @@ const App = () => (
             }
           >
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/contacts" element={<Contacts />} />
-            <Route path="/companies" element={<Companies />} />
-            <Route path="/sales" element={<SalesPipeline />} />
-            <Route path="/delivery" element={<DeliveryPipeline />} />
-            <Route path="/invoices" element={<Invoices />} />
-            <Route path="/reports" element={<Reports />} />
-            <Route path="/agent" element={<AgentLog />} />
+
+            {/* Contacts */}
+            <Route path="/contacts" element={<ContactsPage />} />
+            <Route path="/contacts/:id" element={<ContactDetailPage />} />
+
+            {/* Companies */}
+            <Route path="/companies" element={<CompaniesPage />} />
+            <Route path="/companies/:id" element={<CompanyDetailPage />} />
+
+            {/* Pipelines */}
+            <Route path="/sales-pipeline" element={<SalesPipelinePage />} />
+            <Route path="/delivery-pipeline" element={<DeliveryPipelinePage />} />
+
+            {/* Invoices */}
+            <Route path="/invoices" element={<InvoicesPage />} />
+            <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
+
+            {/* Other */}
+            <Route path="/reports" element={<ReportsPage />} />
+            <Route path="/agent-log" element={<AgentLogPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+
+            {/* Legacy short paths → redirect */}
+            <Route path="/sales" element={<Navigate to="/sales-pipeline" replace />} />
+            <Route path="/delivery" element={<Navigate to="/delivery-pipeline" replace />} />
+            <Route path="/agent" element={<Navigate to="/agent-log" replace />} />
           </Route>
+
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

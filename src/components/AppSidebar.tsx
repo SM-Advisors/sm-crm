@@ -8,15 +8,15 @@ import { cn } from "@/lib/utils";
 import { useState } from "react";
 
 const navItems = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Contacts", url: "/contacts", icon: Users },
-  { title: "Companies", url: "/companies", icon: Building2 },
-  { title: "Sales Pipeline", url: "/sales", icon: TrendingUp },
-  { title: "Delivery Pipeline", url: "/delivery", icon: Truck },
-  { title: "Invoices", url: "/invoices", icon: FileText },
-  { title: "Reports", url: "/reports", icon: BarChart3 },
-  { title: "Agent Log", url: "/agent", icon: Bot },
-  { title: "Settings", url: "/settings", icon: Settings },
+  { title: "Dashboard",          url: "/dashboard",          icon: LayoutDashboard },
+  { title: "Contacts",           url: "/contacts",           icon: Users },
+  { title: "Companies",          url: "/companies",          icon: Building2 },
+  { title: "Sales Pipeline",     url: "/sales-pipeline",     icon: TrendingUp },
+  { title: "Delivery Pipeline",  url: "/delivery-pipeline",  icon: Truck },
+  { title: "Invoices",           url: "/invoices",           icon: FileText },
+  { title: "Reports",            url: "/reports",            icon: BarChart3 },
+  { title: "Agent Log",          url: "/agent-log",          icon: Bot },
+  { title: "Settings",           url: "/settings",           icon: Settings },
 ];
 
 export function AppSidebar() {
@@ -49,7 +49,10 @@ export function AppSidebar() {
       {/* Nav */}
       <nav className="flex-1 py-2 overflow-y-auto">
         {navItems.map((item) => {
-          const active = location.pathname === item.url;
+          const active =
+            item.url === "/dashboard"
+              ? location.pathname === item.url
+              : location.pathname.startsWith(item.url);
           return (
             <NavLink
               key={item.url}
