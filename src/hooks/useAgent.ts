@@ -1,12 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import type { AgentRun, AgentAction, AgentConfig, AgentActionStatus } from "@/types";
+import type { AgentRun, AgentActionStatus } from "@/types";
 
 export function useAgentRuns() {
   return useQuery({
     queryKey: ["agent_runs"],
     queryFn: async (): Promise<AgentRun[]> => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as ReturnType<typeof import("@supabase/supabase-js").createClient>)
         .from("agent_runs")
         .select("*, actions:agent_actions(*, contact:contacts(id,first_name,last_name))")
         .order("run_date", { ascending: false })
@@ -33,9 +33,9 @@ export function useUpdateAgentAction() {
       if (status === "approved") updates.approved_at = new Date().toISOString();
       if (status === "sent") updates.sent_at = new Date().toISOString();
       if (dismiss_reason) updates.dismiss_reason = dismiss_reason;
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as ReturnType<typeof import("@supabase/supabase-js").createClient>)
         .from("agent_actions")
-        .update(updates)
+        .update(updates as Record<string, string>)
         .eq("id", id)
         .select()
         .single();
@@ -49,13 +49,13 @@ export function useUpdateAgentAction() {
 export function useAgentConfig() {
   return useQuery({
     queryKey: ["agent_config"],
-    queryFn: async (): Promise<AgentConfig[]> => {
-      const { data, error } = await supabase
+    queryFn: async () => {
+      const { data, error } = await (supabase as ReturnType<typeof import("@supabase/supabase-js").createClient>)
         .from("agent_config")
         .select("*")
         .order("config_key");
       if (error) throw error;
-      return data as AgentConfig[];
+      return data;
     },
   });
 }
@@ -64,7 +64,7 @@ export function useUpdateAgentConfig() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ config_key, config_value }: { config_key: string; config_value: Record<string, unknown> }) => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as ReturnType<typeof import("@supabase/supabase-js").createClient>)
         .from("agent_config")
         .update({ config_value, updated_at: new Date().toISOString() })
         .eq("config_key", config_key)
