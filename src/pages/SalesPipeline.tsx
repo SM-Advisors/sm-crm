@@ -42,7 +42,7 @@ export default function SalesPipelinePage() {
 
   function handleCardMove(cardId: string, newStage: string, newOrder: number) {
     updateDeal.mutate(
-      { id: cardId, stage: newStage as SalesDeal["stage"], stage_order: newOrder } as Partial<import("@/types").SalesDeal> & { id: string },
+      { id: cardId, stage: newStage as import("@/types").SalesStage, stage_order: newOrder },
       { onError: () => toast.error("Failed to move deal") }
     );
   }
