@@ -19,7 +19,7 @@ export function useContacts() {
       if (error) throw error;
 
       return (contacts as unknown as Record<string, unknown>[]).map((c) => ({
-        ...(c as Record<string, unknown>),
+        ...c,
         company: c.company ?? null,
         categories: ((c.contact_categories as { category: string }[] | null) ?? []).map((cc) => cc.category),
         tags: ((c.contact_tags as { tag: unknown }[] | null) ?? []).map((ct) => ct.tag),
@@ -49,7 +49,7 @@ export function useContact(id: string) {
 
       if (error) throw error;
 
-      const d = data as Record<string, unknown>;
+      const d = data as unknown as Record<string, unknown>;
 
       const { data: salesDeals } = await supabase
         .from("sales_deals")
@@ -85,7 +85,7 @@ export function useCreateContact() {
       const { categories, tags, company, ...rest } = input as Record<string, unknown>;
       const { data, error } = await supabase
         .from("contacts")
-        .insert(rest as Record<string, unknown>)
+        .insert(rest as { first_name: string; last_name: string })
         .select()
         .single();
       if (error) throw error;
@@ -108,7 +108,7 @@ export function useUpdateContact() {
       const { categories, tags, company, ...rest } = updates as Record<string, unknown>;
       const { data, error } = await supabase
         .from("contacts")
-        .update({ ...rest, updated_at: new Date().toISOString() } as Record<string, unknown>)
+        .update({ ...rest, updated_at: new Date().toISOString() } as { first_name?: string })
         .eq("id", id)
         .select()
         .single();

@@ -21,7 +21,7 @@ export function useCreateSalesDeal() {
   return useMutation({
     mutationFn: async (input: Partial<SalesDeal>) => {
       const { company, contact, ...rest } = input as Record<string, unknown>;
-      const { data, error } = await supabase.from("sales_deals").insert(rest as Record<string, unknown>).select().single();
+      const { data, error } = await supabase.from("sales_deals").insert(rest as { title: string }).select().single();
       if (error) throw error;
       return data;
     },
@@ -36,7 +36,7 @@ export function useUpdateSalesDeal() {
       const { company, contact, ...rest } = updates as Record<string, unknown>;
       const { data, error } = await supabase
         .from("sales_deals")
-        .update({ ...rest, updated_at: new Date().toISOString() } as Record<string, unknown>)
+        .update({ ...rest, updated_at: new Date().toISOString() } as { title?: string })
         .eq("id", id)
         .select()
         .single();
@@ -77,7 +77,7 @@ export function useCreateDeliveryEngagement() {
   return useMutation({
     mutationFn: async (input: Partial<DeliveryEngagement>) => {
       const { company, contact, sales_deal, invoices, ...rest } = input as Record<string, unknown>;
-      const { data, error } = await supabase.from("delivery_engagements").insert(rest as Record<string, unknown>).select().single();
+      const { data, error } = await supabase.from("delivery_engagements").insert(rest as { title: string }).select().single();
       if (error) throw error;
       return data;
     },
@@ -92,7 +92,7 @@ export function useUpdateDeliveryEngagement() {
       const { company, contact, sales_deal, invoices, ...rest } = updates as Record<string, unknown>;
       const { data, error } = await supabase
         .from("delivery_engagements")
-        .update({ ...rest, updated_at: new Date().toISOString() } as Record<string, unknown>)
+        .update({ ...rest, updated_at: new Date().toISOString() } as { title?: string })
         .eq("id", id)
         .select()
         .single();

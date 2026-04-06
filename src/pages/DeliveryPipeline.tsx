@@ -11,11 +11,11 @@ import { DELIVERY_STAGE_LABELS } from "@/types";
 import { toast } from "sonner";
 
 const DELIVERY_STAGES: KanbanStage[] = [
-  { id: "kickoff",     label: DELIVERY_STAGE_LABELS.kickoff,     color: "bg-blue-400" },
-  { id: "in_progress", label: DELIVERY_STAGE_LABELS.in_progress, color: "bg-violet-400" },
-  { id: "review",      label: DELIVERY_STAGE_LABELS.review,      color: "bg-amber-400" },
-  { id: "complete",    label: DELIVERY_STAGE_LABELS.complete,     color: "bg-emerald-400" },
-  { id: "on_hold",     label: DELIVERY_STAGE_LABELS.on_hold,     color: "bg-slate-400" },
+  { id: "onboarding",  label: DELIVERY_STAGE_LABELS.onboarding,  color: "bg-blue-400" },
+  { id: "in_progress",  label: DELIVERY_STAGE_LABELS.in_progress, color: "bg-violet-400" },
+  { id: "review",       label: DELIVERY_STAGE_LABELS.review,      color: "bg-amber-400" },
+  { id: "completed",    label: DELIVERY_STAGE_LABELS.completed,   color: "bg-emerald-400" },
+  { id: "on_hold",      label: DELIVERY_STAGE_LABELS.on_hold,     color: "bg-slate-400" },
 ];
 
 export default function DeliveryPipelinePage() {
@@ -32,15 +32,15 @@ export default function DeliveryPipelinePage() {
     stage: e.stage,
     stage_order: e.stage_order ?? 0,
     value: undefined,
-    contract_value: e.contract_value,
+    contract_value: e.total_engagement_value,
     billing_progress: e.billing_progress,
-    company: (e as any).company,
-    contact: (e as any).contact,
+    company: e.company as KanbanCard["company"],
+    contact: e.contact as KanbanCard["contact"],
   }));
 
   function handleCardMove(cardId: string, newStage: string, newOrder: number) {
     updateEngagement.mutate(
-      { id: cardId, stage: newStage as any, stage_order: newOrder },
+      { id: cardId, stage: newStage as import("@/types").DeliveryStage, stage_order: newOrder },
       { onError: () => toast.error("Failed to move engagement") }
     );
   }
@@ -56,11 +56,11 @@ export default function DeliveryPipelinePage() {
     createEngagement.mutate(
       {
         title: data.title,
-        stage: data.stage as any,
+        stage: data.stage as import("@/types").DeliveryStage,
         stage_order: stageCards.length,
         company_id: data.company_id,
         contact_id: data.contact_id,
-        contract_value: data.value,
+        total_engagement_value: data.value ?? 0,
       },
       {
         onSuccess: () => toast.success("Engagement created"),

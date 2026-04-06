@@ -15,8 +15,8 @@ export function useCompanies() {
         .order("name", { ascending: true });
       if (error) throw error;
       return (data as unknown as Record<string, unknown>[]).map((c) => ({
-        ...(c as Record<string, unknown>),
-        tags: ((c as Record<string, unknown>).company_tags as { tag: unknown }[] | null)?.map((ct) => ct.tag) ?? [],
+        ...c,
+        tags: ((c.company_tags as { tag: unknown }[] | null) ?? []).map((ct) => ct.tag),
       })) as unknown as Company[];
     },
   });
@@ -26,7 +26,15 @@ export function useCompany(id: string) {
   return useQuery({
     queryKey: ["company", id],
     enabled: !!id,
-    queryFn: async () => {
+    queryFn: async (): Promise<Company & {
+      contacts: unknown[];
+      interactions: unknown[];
+      document_links: unknown[];
+      sales_deals: unknown[];
+      delivery_engagements: unknown[];
+      invoices: unknown[];
+      tags: unknown[];
+    }> => {
       const { data, error } = await supabase
         .from("companies")
         .select(`
@@ -40,7 +48,7 @@ export function useCompany(id: string) {
         .single();
       if (error) throw error;
 
-      const d = data as Record<string, unknown>;
+      const d = data as unknown as Record<string, unknown>;
 
       const { data: salesDeals } = await supabase
         .from("sales_deals")
@@ -60,9 +68,9 @@ export function useCompany(id: string) {
         .eq("company_id", id)
         .order("invoice_date", { ascending: false });
 
-      return {
+      const result = {
         ...d,
-        tags: (d.company_tags as { tag: unknown }[] | null)?.map((ct) => ct.tag) ?? [],
+        tags: ((d.company_tags as { tag: unknown }[] | null) ?? []).map((ct) => ct.tag),
         contacts: ((d.contacts as Record<string, unknown>[] | null) ?? []).map((c) => ({
           ...c,
           categories: ((c.contact_categories as { category: string }[] | null) ?? []).map((cc) => cc.category),
@@ -73,6 +81,16 @@ export function useCompany(id: string) {
         delivery_engagements: engagements ?? [],
         invoices: invoices ?? [],
       };
+
+      return result as unknown as Company & {
+        contacts: unknown[];
+        interactions: unknown[];
+        document_links: unknown[];
+        sales_deals: unknown[];
+        delivery_engagements: unknown[];
+        invoices: unknown[];
+        tags: unknown[];
+      };
     },
   });
 }
@@ -82,7 +100,7 @@ export function useCreateCompany() {
   return useMutation({
     mutationFn: async (input: Partial<Company>) => {
       const { tags, contact_count, ...rest } = input as Record<string, unknown>;
-      const { data, error } = await supabase.from("companies").insert(rest as Record<string, unknown>).select().single();
+      const { data, error } = await supabase.from("companies").insert(rest as { name: string }).select().single();
       if (error) throw error;
       return data;
     },
@@ -97,7 +115,7 @@ export function useUpdateCompany() {
       const { tags, contact_count, ...rest } = updates as Record<string, unknown>;
       const { data, error } = await supabase
         .from("companies")
-        .update({ ...rest, updated_at: new Date().toISOString() } as Record<string, unknown>)
+        .update({ ...rest, updated_at: new Date().toISOString() } as { name?: string })
         .eq("id", id)
         .select()
         .single();

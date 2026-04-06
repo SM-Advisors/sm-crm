@@ -231,7 +231,7 @@ export default function Dashboard() {
       .reduce((s, d) => s + ((d.value ?? 0) * ((d.probability ?? 50) / 100)), 0);
 
     const outstanding = invoices
-      .filter((i) => i.status !== "paid" && i.status !== "cancelled")
+      .filter((i) => i.status !== "paid" && i.status !== "voided")
       .reduce((s, i) => s + (i.balance_due ?? ((i.total ?? 0) - (i.amount_paid ?? 0))), 0);
 
     const pendingDrafts = runs
