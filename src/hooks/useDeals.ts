@@ -11,7 +11,7 @@ export function useSalesDeals() {
         .select("*, company:companies(id,name), contact:contacts(id,first_name,last_name)")
         .order("stage_order", { ascending: true });
       if (error) throw error;
-      return data;
+      return data as unknown as SalesDeal[];
     },
   });
 }
@@ -20,8 +20,8 @@ export function useCreateSalesDeal() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: Partial<SalesDeal>) => {
-      const { company, contact, ...rest } = input as any;
-      const { data, error } = await supabase.from("sales_deals").insert(rest).select().single();
+      const { company, contact, ...rest } = input as Record<string, unknown>;
+      const { data, error } = await supabase.from("sales_deals").insert(rest as { title: string }).select().single();
       if (error) throw error;
       return data;
     },
@@ -33,10 +33,10 @@ export function useUpdateSalesDeal() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<SalesDeal> & { id: string }) => {
-      const { company, contact, ...rest } = updates as any;
+      const { company, contact, ...rest } = updates as Record<string, unknown>;
       const { data, error } = await supabase
         .from("sales_deals")
-        .update({ ...rest, updated_at: new Date().toISOString() })
+        .update({ ...rest, updated_at: new Date().toISOString() } as { title?: string })
         .eq("id", id)
         .select()
         .single();
@@ -67,7 +67,7 @@ export function useDeliveryEngagements() {
         .select("*, company:companies(id,name), contact:contacts(id,first_name,last_name)")
         .order("stage_order", { ascending: true });
       if (error) throw error;
-      return data;
+      return data as unknown as DeliveryEngagement[];
     },
   });
 }
@@ -76,8 +76,8 @@ export function useCreateDeliveryEngagement() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: Partial<DeliveryEngagement>) => {
-      const { company, contact, sales_deal, invoices, ...rest } = input as any;
-      const { data, error } = await supabase.from("delivery_engagements").insert(rest).select().single();
+      const { company, contact, sales_deal, invoices, ...rest } = input as Record<string, unknown>;
+      const { data, error } = await supabase.from("delivery_engagements").insert(rest as { title: string }).select().single();
       if (error) throw error;
       return data;
     },
@@ -89,10 +89,10 @@ export function useUpdateDeliveryEngagement() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<DeliveryEngagement> & { id: string }) => {
-      const { company, contact, sales_deal, invoices, ...rest } = updates as any;
+      const { company, contact, sales_deal, invoices, ...rest } = updates as Record<string, unknown>;
       const { data, error } = await supabase
         .from("delivery_engagements")
-        .update({ ...rest, updated_at: new Date().toISOString() })
+        .update({ ...rest, updated_at: new Date().toISOString() } as { title?: string })
         .eq("id", id)
         .select()
         .single();

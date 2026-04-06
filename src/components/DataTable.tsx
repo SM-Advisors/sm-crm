@@ -90,7 +90,8 @@ function exportToCsv(filename: string, rows: Record<string, unknown>[]) {
 
 // ─── Custom filter function (case-insensitive string includes) ────────────────
 
-const fuzzyFilter: FilterFn<unknown> = (row, columnId, value) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const fuzzyFilter: FilterFn<any> = (row, columnId, value) => {
   const cellValue = row.getValue(columnId);
   if (value === "" || value === undefined || value === null) return true;
   const str = cellToString(cellValue).toLowerCase();
@@ -208,9 +209,10 @@ export function DataTable<T>({
 
   const table = useReactTable({
     data,
-    columns: columns as ColumnDef<T>[],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    columns: columns as ColumnDef<any>[],
     filterFns: { fuzzy: fuzzyFilter },
-    globalFilterFn: fuzzyFilter,
+    globalFilterFn: fuzzyFilter as FilterFn<any>,
     state: { sorting, columnFilters, globalFilter, pagination },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
@@ -229,7 +231,7 @@ export function DataTable<T>({
     const rows = table
       .getFilteredRowModel()
       .rows.map((r) =>
-        toExportRow ? toExportRow(r.original) : (r.original as Record<string, unknown>)
+        toExportRow ? toExportRow(r.original as T) : (r.original as Record<string, unknown>)
       );
     exportToCsv(`${exportName}-view.csv`, rows);
   }, [table, exportName, toExportRow]);

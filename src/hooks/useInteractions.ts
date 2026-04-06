@@ -14,7 +14,7 @@ export function useInteractions(contactId?: string, companyId?: string) {
       if (companyId) q = q.eq("company_id", companyId);
       const { data, error } = await q;
       if (error) throw error;
-      return data;
+      return data as unknown as Interaction[];
     },
   });
 }

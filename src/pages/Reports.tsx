@@ -66,7 +66,7 @@ function RevenueTab() {
   const totalInvoiced = invoices.reduce((s, i) => s + (i.total ?? 0), 0);
   const totalCollected = invoices.reduce((s, i) => s + (i.amount_paid ?? 0), 0);
   const totalOutstanding = invoices
-    .filter((i) => i.status !== "paid" && i.status !== "cancelled")
+    .filter((i) => i.status !== "paid" && i.status !== "voided")
     .reduce((s, i) => s + ((i.total ?? 0) - (i.amount_paid ?? 0)), 0);
 
   return (

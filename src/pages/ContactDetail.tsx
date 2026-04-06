@@ -210,7 +210,7 @@ function ActivitiesTab({ contact }: { contact: ContactWithDetails }) {
   );
   const logInteraction = useLogInteraction();
 
-  const activityTypes: InteractionType[] = ["call", "meeting", "linkedin", "sms"];
+  const activityTypes: InteractionType[] = ["call", "meeting", "linkedin_message", "text"];
   const activities = (contact.interactions ?? []).filter((i) =>
     activityTypes.includes(i.type as InteractionType)
   );
@@ -331,7 +331,7 @@ function ActivitiesTab({ contact }: { contact: ContactWithDetails }) {
 // Emails tab ──────────────────────────────────────────────────────────────────
 
 function EmailsTab({ contact }: { contact: ContactWithDetails }) {
-  const emails = (contact.interactions ?? []).filter((i) => i.type === "email");
+  const emails = (contact.interactions ?? []).filter((i) => i.type === "email_sent" || i.type === "email_received");
 
   return (
     <div className="flex flex-col gap-4">
@@ -448,9 +448,9 @@ function PipelinesTab({ contact }: { contact: ContactWithDetails }) {
                       {DELIVERY_STAGE_LABELS[eng.stage as keyof typeof DELIVERY_STAGE_LABELS] ?? eng.stage}
                     </p>
                   </div>
-                  {eng.contract_value && (
+                  {eng.total_engagement_value != null && eng.total_engagement_value > 0 && (
                     <span className="text-sm font-semibold">
-                      ${eng.contract_value.toLocaleString()}
+                      ${eng.total_engagement_value.toLocaleString()}
                     </span>
                   )}
                 </CardContent>

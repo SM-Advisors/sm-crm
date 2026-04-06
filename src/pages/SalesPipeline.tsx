@@ -11,12 +11,13 @@ import { SALES_STAGE_LABELS } from "@/types";
 import { toast } from "sonner";
 
 const SALES_STAGES: KanbanStage[] = [
-  { id: "prospect",    label: SALES_STAGE_LABELS.prospect,    color: "bg-slate-400" },
+  { id: "lead",        label: SALES_STAGE_LABELS.lead,        color: "bg-slate-400" },
   { id: "qualified",   label: SALES_STAGE_LABELS.qualified,   color: "bg-blue-400" },
+  { id: "discovery",   label: SALES_STAGE_LABELS.discovery,   color: "bg-cyan-400" },
   { id: "proposal",    label: SALES_STAGE_LABELS.proposal,    color: "bg-violet-400" },
   { id: "negotiation", label: SALES_STAGE_LABELS.negotiation, color: "bg-amber-400" },
-  { id: "won",         label: SALES_STAGE_LABELS.won,         color: "bg-emerald-400" },
-  { id: "lost",        label: SALES_STAGE_LABELS.lost,        color: "bg-rose-400" },
+  { id: "closed_won",  label: SALES_STAGE_LABELS.closed_won,  color: "bg-emerald-400" },
+  { id: "closed_lost", label: SALES_STAGE_LABELS.closed_lost, color: "bg-rose-400" },
 ];
 
 export default function SalesPipelinePage() {
@@ -33,15 +34,15 @@ export default function SalesPipelinePage() {
     stage: d.stage,
     stage_order: d.stage_order ?? 0,
     value: d.value,
-    company: (d as any).company,
-    contact: (d as any).contact,
+    company: d.company as KanbanCard["company"],
+    contact: d.contact as KanbanCard["contact"],
     probability: d.probability,
     close_date: d.expected_close_date,
   }));
 
   function handleCardMove(cardId: string, newStage: string, newOrder: number) {
     updateDeal.mutate(
-      { id: cardId, stage: newStage as any, stage_order: newOrder },
+      { id: cardId, stage: newStage as import("@/types").SalesStage, stage_order: newOrder },
       { onError: () => toast.error("Failed to move deal") }
     );
   }
@@ -57,7 +58,7 @@ export default function SalesPipelinePage() {
     createDeal.mutate(
       {
         title: data.title,
-        stage: data.stage as any,
+        stage: data.stage as import("@/types").SalesStage,
         stage_order: stageCards.length,
         company_id: data.company_id,
         contact_id: data.contact_id,

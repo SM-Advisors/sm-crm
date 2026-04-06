@@ -4,8 +4,6 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/AppLayout";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
-import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import ContactsPage from "./pages/Contacts";
 import ContactDetailPage from "./pages/ContactDetail";
@@ -23,7 +21,7 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 2, // 2 minutes
+      staleTime: 1000 * 60 * 2,
       retry: 1,
     },
   },
@@ -36,15 +34,9 @@ const App = () => (
       <Sonner richColors position="top-right" />
       <BrowserRouter>
         <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route
-            element={
-              <ProtectedRoute>
-                <AppLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route path="/dashboard" element={<Dashboard />} />
+          <Route element={<AppLayout />}>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/dashboard" element={<Navigate to="/" replace />} />
 
             {/* Contacts */}
             <Route path="/contacts" element={<ContactsPage />} />
@@ -67,13 +59,12 @@ const App = () => (
             <Route path="/agent-log" element={<AgentLogPage />} />
             <Route path="/settings" element={<SettingsPage />} />
 
-            {/* Legacy short paths → redirect */}
+            {/* Legacy short paths */}
             <Route path="/sales" element={<Navigate to="/sales-pipeline" replace />} />
             <Route path="/delivery" element={<Navigate to="/delivery-pipeline" replace />} />
             <Route path="/agent" element={<Navigate to="/agent-log" replace />} />
           </Route>
 
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

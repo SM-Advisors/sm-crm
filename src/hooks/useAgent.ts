@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import type { AgentRun, AgentAction, AgentConfig, AgentActionStatus } from "@/types";
+import type { AgentRun, AgentActionStatus } from "@/types";
 
 export function useAgentRuns() {
   return useQuery({
@@ -12,7 +12,7 @@ export function useAgentRuns() {
         .order("run_date", { ascending: false })
         .limit(30);
       if (error) throw error;
-      return data as AgentRun[];
+      return data as unknown as AgentRun[];
     },
   });
 }
@@ -35,7 +35,7 @@ export function useUpdateAgentAction() {
       if (dismiss_reason) updates.dismiss_reason = dismiss_reason;
       const { data, error } = await supabase
         .from("agent_actions")
-        .update(updates)
+        .update(updates as { status: string })
         .eq("id", id)
         .select()
         .single();
@@ -49,13 +49,13 @@ export function useUpdateAgentAction() {
 export function useAgentConfig() {
   return useQuery({
     queryKey: ["agent_config"],
-    queryFn: async (): Promise<AgentConfig[]> => {
+    queryFn: async () => {
       const { data, error } = await supabase
         .from("agent_config")
         .select("*")
         .order("config_key");
       if (error) throw error;
-      return data as AgentConfig[];
+      return data;
     },
   });
 }
@@ -66,7 +66,7 @@ export function useUpdateAgentConfig() {
     mutationFn: async ({ config_key, config_value }: { config_key: string; config_value: Record<string, unknown> }) => {
       const { data, error } = await supabase
         .from("agent_config")
-        .update({ config_value, updated_at: new Date().toISOString() })
+        .update({ config_value: config_value as unknown as import("@/integrations/supabase/types").Json, updated_at: new Date().toISOString() })
         .eq("config_key", config_key)
         .select()
         .single();
