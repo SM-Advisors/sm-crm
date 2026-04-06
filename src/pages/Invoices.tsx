@@ -96,7 +96,7 @@ function buildColumns(navigate: ReturnType<typeof useNavigate>): DataTableColumn
       sortingFn: "datetime",
     },
     {
-      accessorKey: "total",
+      accessorKey: "total_amount",
       header: "Total",
       filterMeta: { type: "number" },
       cell: ({ getValue }) => (
@@ -106,8 +106,9 @@ function buildColumns(navigate: ReturnType<typeof useNavigate>): DataTableColumn
       ),
     },
     {
-      accessorKey: "amount_paid",
+      id: "amount_paid",
       header: "Paid",
+      accessorFn: (row) => (row.total_amount ?? 0) - (row.balance_due ?? 0),
       filterMeta: { type: "number" },
       cell: ({ getValue }) => (
         <span className="tabular-nums">{formatCurrency(getValue() as number)}</span>
@@ -130,7 +131,7 @@ function buildColumns(navigate: ReturnType<typeof useNavigate>): DataTableColumn
     {
       id: "balance",
       header: "Balance",
-      accessorFn: (row) => (row.total ?? 0) - (row.amount_paid ?? 0),
+      accessorFn: (row) => row.balance_due ?? 0,
       cell: ({ getValue }) => {
         const v = getValue() as number;
         return (
@@ -152,9 +153,9 @@ function toExportRow(inv: Invoice): Record<string, unknown> {
     Engagement: (inv as any).engagement?.title ?? "",
     Date: formatDate(inv.invoice_date),
     Due: formatDate(inv.due_date),
-    Total: inv.total ?? 0,
-    Paid: inv.amount_paid ?? 0,
-    Balance: (inv.total ?? 0) - (inv.amount_paid ?? 0),
+    Total: inv.total_amount ?? 0,
+    Paid: (inv.total_amount ?? 0) - (inv.balance_due ?? 0),
+    Balance: inv.balance_due ?? 0,
     Status: inv.status ?? "",
   };
 }
@@ -168,7 +169,7 @@ export default function InvoicesPage() {
 
   const totalOutstanding = invoices
     .filter((i) => i.status !== "paid" && i.status !== "voided")
-    .reduce((sum, i) => sum + ((i.total ?? 0) - (i.amount_paid ?? 0)), 0);
+    .reduce((sum, i) => sum + (i.balance_due ?? 0), 0);
 
   return (
     <div className="flex flex-col gap-6 p-6">

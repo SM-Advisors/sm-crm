@@ -226,21 +226,22 @@ export interface Invoice {
   id: string;
   engagement_id: string | null;
   company_id: string | null;
+  contact_id: string | null;
   qb_invoice_id: string | null;
+  qb_customer_id: string | null;
   invoice_number: string | null;
   invoice_date: string | null;
   due_date: string | null;
   status: InvoiceStatus;
-  subtotal: number | null;
-  tax: number;
-  total: number | null;
-  amount_paid: number;
+  total_amount: number | null;   // QB sync column name
   balance_due: number | null;
-  qb_customer_name: string | null;
-  qb_invoice_url: string | null;
-  synced_at: string | null;
+  currency: string | null;
+  qb_last_updated: string | null;
+  raw_data: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
+  // Derived (not in DB)
+  // amount_paid = total_amount - balance_due
   // Joined
   company?: Company | null;
   engagement?: DeliveryEngagement | null;

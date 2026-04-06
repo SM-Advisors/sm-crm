@@ -232,7 +232,7 @@ export default function Dashboard() {
 
     const outstanding = invoices
       .filter((i) => i.status !== "paid" && i.status !== "voided")
-      .reduce((s, i) => s + (i.balance_due ?? ((i.total ?? 0) - (i.amount_paid ?? 0))), 0);
+      .reduce((s, i) => s + (i.balance_due ?? 0), 0);
 
     const pendingDrafts = runs
       .flatMap((r) => (r as any).actions ?? [])

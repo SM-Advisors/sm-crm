@@ -64,7 +64,8 @@ export default function InvoiceDetailPage() {
 
   const lineItems = (invoice as any).line_items ?? [];
   const payments = (invoice as any).payments ?? [];
-  const balance = invoice.balance_due ?? ((invoice.total ?? 0) - (invoice.amount_paid ?? 0));
+  const amountPaid = (invoice.total_amount ?? 0) - (invoice.balance_due ?? 0);
+  const balance = invoice.balance_due ?? 0;
   const statusCls = STATUS_COLORS[invoice.status ?? ""] ?? "";
 
   return (
@@ -201,24 +202,13 @@ export default function InvoiceDetailPage() {
           </CardHeader>
           <CardContent>
             <div className="flex flex-col gap-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Subtotal</span>
-                <span>{formatCurrency(invoice.subtotal ?? invoice.total)}</span>
-              </div>
-              {(invoice as any).tax_amount != null && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Tax</span>
-                  <span>{formatCurrency((invoice as any).tax_amount)}</span>
-                </div>
-              )}
-              <Separator />
               <div className="flex justify-between text-sm font-semibold">
                 <span>Total</span>
-                <span>{formatCurrency(invoice.total)}</span>
+                <span>{formatCurrency(invoice.total_amount)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Amount Paid</span>
-                <span className="text-emerald-600">{formatCurrency(invoice.amount_paid)}</span>
+                <span className="text-emerald-600">{formatCurrency(amountPaid)}</span>
               </div>
               <Separator />
               <div className="flex justify-between text-base font-bold">

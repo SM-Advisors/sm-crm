@@ -46,8 +46,8 @@ function RevenueTab() {
       try {
         const key = format(startOfMonth(parseISO(inv.invoice_date)), "yyyy-MM");
         if (months[key]) {
-          months[key].invoiced += inv.total ?? 0;
-          months[key].collected += inv.amount_paid ?? 0;
+          months[key].invoiced += inv.total_amount ?? 0;
+          months[key].collected += (inv.total_amount ?? 0) - (inv.balance_due ?? 0);
         }
       } catch {}
     }
@@ -58,16 +58,16 @@ function RevenueTab() {
   const statusData = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const inv of invoices) {
-      counts[inv.status ?? "unknown"] = (counts[inv.status ?? "unknown"] ?? 0) + (inv.total ?? 0);
+      counts[inv.status ?? "unknown"] = (counts[inv.status ?? "unknown"] ?? 0) + (inv.total_amount ?? 0);
     }
     return Object.entries(counts).map(([name, value]) => ({ name, value }));
   }, [invoices]);
 
-  const totalInvoiced = invoices.reduce((s, i) => s + (i.total ?? 0), 0);
-  const totalCollected = invoices.reduce((s, i) => s + (i.amount_paid ?? 0), 0);
+  const totalInvoiced = invoices.reduce((s, i) => s + (i.total_amount ?? 0), 0);
+  const totalCollected = invoices.reduce((s, i) => s + ((i.total_amount ?? 0) - (i.balance_due ?? 0)), 0);
   const totalOutstanding = invoices
     .filter((i) => i.status !== "paid" && i.status !== "voided")
-    .reduce((s, i) => s + ((i.total ?? 0) - (i.amount_paid ?? 0)), 0);
+    .reduce((s, i) => s + (i.balance_due ?? 0), 0);
 
   return (
     <div className="flex flex-col gap-6">
