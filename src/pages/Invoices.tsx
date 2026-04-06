@@ -33,7 +33,7 @@ const statusOptions = [
   { label: "Partial", value: "partial" },
   { label: "Paid", value: "paid" },
   { label: "Overdue", value: "overdue" },
-  { label: "Cancelled", value: "cancelled" },
+  { label: "Voided", value: "voided" },
 ];
 
 // ─── Columns ──────────────────────────────────────────────────────────────────
@@ -167,7 +167,7 @@ export default function InvoicesPage() {
   const columns = useMemo(() => buildColumns(navigate), [navigate]);
 
   const totalOutstanding = invoices
-    .filter((i) => i.status !== "paid" && i.status !== "cancelled")
+    .filter((i) => i.status !== "paid" && i.status !== "voided")
     .reduce((sum, i) => sum + ((i.total ?? 0) - (i.amount_paid ?? 0)), 0);
 
   return (
