@@ -648,11 +648,9 @@ export type Database = {
           description: string | null
           id: string
           invoice_id: string | null
-          item_name: string | null
           quantity: number | null
           service_date: string | null
           unit_price: number | null
-          updated_at: string | null
         }
         Insert: {
           amount?: number | null
@@ -660,11 +658,9 @@ export type Database = {
           description?: string | null
           id?: string
           invoice_id?: string | null
-          item_name?: string | null
           quantity?: number | null
           service_date?: string | null
           unit_price?: number | null
-          updated_at?: string | null
         }
         Update: {
           amount?: number | null
@@ -672,11 +668,9 @@ export type Database = {
           description?: string | null
           id?: string
           invoice_id?: string | null
-          item_name?: string | null
           quantity?: number | null
           service_date?: string | null
           unit_price?: number | null
-          updated_at?: string | null
         }
         Relationships: [
           {
@@ -690,63 +684,57 @@ export type Database = {
       }
       invoices: {
         Row: {
-          amount_paid: number | null
           balance_due: number | null
           company_id: string | null
+          contact_id: string | null
           created_at: string | null
+          currency: string | null
           due_date: string | null
-          engagement_id: string | null
           id: string
           invoice_date: string | null
           invoice_number: string | null
-          qb_customer_name: string | null
-          qb_invoice_id: string | null
-          qb_invoice_url: string | null
-          status: Database["public"]["Enums"]["invoice_status"]
-          subtotal: number | null
-          synced_at: string | null
-          tax: number | null
-          total: number | null
+          qb_customer_id: string
+          qb_invoice_id: string
+          qb_last_updated: string | null
+          raw_data: Json | null
+          status: string
+          total_amount: number | null
           updated_at: string | null
         }
         Insert: {
-          amount_paid?: number | null
           balance_due?: number | null
           company_id?: string | null
+          contact_id?: string | null
           created_at?: string | null
+          currency?: string | null
           due_date?: string | null
-          engagement_id?: string | null
           id?: string
           invoice_date?: string | null
           invoice_number?: string | null
-          qb_customer_name?: string | null
-          qb_invoice_id?: string | null
-          qb_invoice_url?: string | null
-          status?: Database["public"]["Enums"]["invoice_status"]
-          subtotal?: number | null
-          synced_at?: string | null
-          tax?: number | null
-          total?: number | null
+          qb_customer_id: string
+          qb_invoice_id: string
+          qb_last_updated?: string | null
+          raw_data?: Json | null
+          status?: string
+          total_amount?: number | null
           updated_at?: string | null
         }
         Update: {
-          amount_paid?: number | null
           balance_due?: number | null
           company_id?: string | null
+          contact_id?: string | null
           created_at?: string | null
+          currency?: string | null
           due_date?: string | null
-          engagement_id?: string | null
           id?: string
           invoice_date?: string | null
           invoice_number?: string | null
-          qb_customer_name?: string | null
-          qb_invoice_id?: string | null
-          qb_invoice_url?: string | null
-          status?: Database["public"]["Enums"]["invoice_status"]
-          subtotal?: number | null
-          synced_at?: string | null
-          tax?: number | null
-          total?: number | null
+          qb_customer_id?: string
+          qb_invoice_id?: string
+          qb_last_updated?: string | null
+          raw_data?: Json | null
+          status?: string
+          total_amount?: number | null
           updated_at?: string | null
         }
         Relationships: [
@@ -758,10 +746,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "invoices_engagement_id_fkey"
-            columns: ["engagement_id"]
+            foreignKeyName: "invoices_contact_id_fkey"
+            columns: ["contact_id"]
             isOneToOne: false
-            referencedRelation: "delivery_engagements"
+            referencedRelation: "contacts"
             referencedColumns: ["id"]
           },
         ]
@@ -800,15 +788,97 @@ export type Database = {
           reference_number?: string | null
           synced_at?: string | null
         }
+        Relationships: []
+      }
+      qb_customer_map: {
+        Row: {
+          company_id: string | null
+          contact_id: string | null
+          created_at: string | null
+          id: string
+          match_confidence: string | null
+          match_method: string | null
+          qb_company_name: string | null
+          qb_customer_id: string
+          qb_display_name: string | null
+          qb_email: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          id?: string
+          match_confidence?: string | null
+          match_method?: string | null
+          qb_company_name?: string | null
+          qb_customer_id: string
+          qb_display_name?: string | null
+          qb_email?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          id?: string
+          match_confidence?: string | null
+          match_method?: string | null
+          qb_company_name?: string | null
+          qb_customer_id?: string
+          qb_display_name?: string | null
+          qb_email?: string | null
+          updated_at?: string | null
+        }
         Relationships: [
           {
-            foreignKeyName: "payments_invoice_id_fkey"
-            columns: ["invoice_id"]
+            foreignKeyName: "qb_customer_map_company_id_fkey"
+            columns: ["company_id"]
             isOneToOne: false
-            referencedRelation: "invoices"
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qb_customer_map_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
             referencedColumns: ["id"]
           },
         ]
+      }
+      qb_sync_state: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_running: boolean | null
+          last_qb_updated_time: string | null
+          last_sync_at: string
+          lock_acquired_at: string | null
+          sync_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_running?: boolean | null
+          last_qb_updated_time?: string | null
+          last_sync_at?: string
+          lock_acquired_at?: string | null
+          sync_type: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_running?: boolean | null
+          last_qb_updated_time?: string | null
+          last_sync_at?: string
+          lock_acquired_at?: string | null
+          sync_type?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       sales_deals: {
         Row: {
@@ -965,7 +1035,37 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      billing_summary: {
+        Row: {
+          company_id: string | null
+          contact_id: string | null
+          days_since_last_invoice: number | null
+          first_invoice_date: string | null
+          last_invoice_date: string | null
+          overdue_amount: number | null
+          overdue_count: number | null
+          total_invoices: number | null
+          total_outstanding: number | null
+          total_paid: number | null
+          total_revenue: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       [_ in never]: never
