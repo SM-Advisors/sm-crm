@@ -223,16 +223,11 @@ export default function InvoiceDetailPage() {
       </div>
 
       {/* QB link if present */}
-      {invoice.qb_invoice_url && (
-        <a
-          href={invoice.qb_invoice_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-2 text-sm text-primary hover:underline"
-        >
+      {invoice.qb_invoice_id && (
+        <p className="flex items-center gap-2 text-sm text-muted-foreground">
           <ExternalLink className="h-3.5 w-3.5" />
-          View in QuickBooks
-        </a>
+          QuickBooks ID: {invoice.qb_invoice_id}
+        </p>
       )}
     </div>
   );
