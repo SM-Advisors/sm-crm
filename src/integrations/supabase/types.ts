@@ -1068,7 +1068,15 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      acquire_invoice_lock: {
+        Args: never
+        Returns: {
+          last_qb_updated_time: string
+          last_sync_at: string
+        }[]
+      }
+      backfill_invoice_contacts: { Args: never; Returns: number }
+      refresh_billing_summary: { Args: never; Returns: undefined }
     }
     Enums: {
       agent_action_type:
