@@ -18,12 +18,12 @@ export function useContacts() {
 
       if (error) throw error;
 
-      return contacts.map((c: any) => ({
-        ...c,
+      return (contacts as unknown as Record<string, unknown>[]).map((c) => ({
+        ...(c as Record<string, unknown>),
         company: c.company ?? null,
-        categories: c.contact_categories?.map((cc: any) => cc.category) ?? [],
-        tags: c.contact_tags?.map((ct: any) => ct.tag) ?? [],
-      }));
+        categories: ((c.contact_categories as { category: string }[] | null) ?? []).map((cc) => cc.category),
+        tags: ((c.contact_tags as { tag: unknown }[] | null) ?? []).map((ct) => ct.tag),
+      })) as unknown as Contact[];
     },
   });
 }
@@ -40,7 +40,7 @@ export function useContact(id: string) {
           company:companies(*),
           contact_categories(category),
           contact_tags(tag:tags(id, name, color)),
-          interactions(* , order:occurred_at.desc),
+          interactions(*),
           agent_context_notes(*),
           document_links(*)
         `)
@@ -49,7 +49,8 @@ export function useContact(id: string) {
 
       if (error) throw error;
 
-      // Fetch deals separately
+      const d = data as Record<string, unknown>;
+
       const { data: salesDeals } = await supabase
         .from("sales_deals")
         .select("*, company:companies(id,name)")
@@ -63,16 +64,16 @@ export function useContact(id: string) {
         .order("created_at", { ascending: false });
 
       return {
-        ...data,
-        company: data.company ?? null,
-        categories: data.contact_categories?.map((cc: any) => cc.category) ?? [],
-        tags: data.contact_tags?.map((ct: any) => ct.tag) ?? [],
-        interactions: data.interactions ?? [],
+        ...d,
+        company: d.company ?? null,
+        categories: ((d.contact_categories as { category: string }[] | null) ?? []).map((cc) => cc.category),
+        tags: ((d.contact_tags as { tag: unknown }[] | null) ?? []).map((ct) => ct.tag),
+        interactions: (d.interactions as unknown[] | null) ?? [],
         sales_deals: salesDeals ?? [],
         delivery_engagements: deliveryEngagements ?? [],
-        document_links: data.document_links ?? [],
-        agent_context_notes: data.agent_context_notes ?? [],
-      };
+        document_links: (d.document_links as unknown[] | null) ?? [],
+        agent_context_notes: (d.agent_context_notes as unknown[] | null) ?? [],
+      } as unknown as ContactWithDetails;
     },
   });
 }
@@ -81,17 +82,17 @@ export function useCreateContact() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: Partial<Contact> & { categories?: ContactCategory[] }) => {
-      const { categories, tags, company, ...rest } = input as any;
+      const { categories, tags, company, ...rest } = input as Record<string, unknown>;
       const { data, error } = await supabase
         .from("contacts")
-        .insert(rest)
+        .insert(rest as Record<string, unknown>)
         .select()
         .single();
       if (error) throw error;
 
-      if (categories?.length) {
+      if (categories && (categories as ContactCategory[]).length) {
         await supabase.from("contact_categories").insert(
-          categories.map((cat: ContactCategory) => ({ contact_id: data.id, category: cat }))
+          (categories as ContactCategory[]).map((cat) => ({ contact_id: (data as { id: string }).id, category: cat }))
         );
       }
       return data;
@@ -104,10 +105,10 @@ export function useUpdateContact() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Contact> & { id: string }) => {
-      const { categories, tags, company, ...rest } = updates as any;
+      const { categories, tags, company, ...rest } = updates as Record<string, unknown>;
       const { data, error } = await supabase
         .from("contacts")
-        .update({ ...rest, updated_at: new Date().toISOString() })
+        .update({ ...rest, updated_at: new Date().toISOString() } as Record<string, unknown>)
         .eq("id", id)
         .select()
         .single();

@@ -6,13 +6,13 @@ export function useAgentRuns() {
   return useQuery({
     queryKey: ["agent_runs"],
     queryFn: async (): Promise<AgentRun[]> => {
-      const { data, error } = await (supabase as ReturnType<typeof import("@supabase/supabase-js").createClient>)
+      const { data, error } = await supabase
         .from("agent_runs")
         .select("*, actions:agent_actions(*, contact:contacts(id,first_name,last_name))")
         .order("run_date", { ascending: false })
         .limit(30);
       if (error) throw error;
-      return data as AgentRun[];
+      return data as unknown as AgentRun[];
     },
   });
 }
@@ -33,9 +33,9 @@ export function useUpdateAgentAction() {
       if (status === "approved") updates.approved_at = new Date().toISOString();
       if (status === "sent") updates.sent_at = new Date().toISOString();
       if (dismiss_reason) updates.dismiss_reason = dismiss_reason;
-      const { data, error } = await (supabase as ReturnType<typeof import("@supabase/supabase-js").createClient>)
+      const { data, error } = await supabase
         .from("agent_actions")
-        .update(updates as Record<string, string>)
+        .update(updates as { status: string })
         .eq("id", id)
         .select()
         .single();
@@ -50,7 +50,7 @@ export function useAgentConfig() {
   return useQuery({
     queryKey: ["agent_config"],
     queryFn: async () => {
-      const { data, error } = await (supabase as ReturnType<typeof import("@supabase/supabase-js").createClient>)
+      const { data, error } = await supabase
         .from("agent_config")
         .select("*")
         .order("config_key");
@@ -64,9 +64,9 @@ export function useUpdateAgentConfig() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ config_key, config_value }: { config_key: string; config_value: Record<string, unknown> }) => {
-      const { data, error } = await (supabase as ReturnType<typeof import("@supabase/supabase-js").createClient>)
+      const { data, error } = await supabase
         .from("agent_config")
-        .update({ config_value, updated_at: new Date().toISOString() })
+        .update({ config_value: config_value as unknown as import("@/integrations/supabase/types").Json, updated_at: new Date().toISOString() })
         .eq("config_key", config_key)
         .select()
         .single();

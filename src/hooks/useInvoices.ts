@@ -11,7 +11,7 @@ export function useInvoices() {
         .select("*, company:companies(id,name), engagement:delivery_engagements(id,title)")
         .order("invoice_date", { ascending: false });
       if (error) throw error;
-      return data;
+      return data as unknown as Invoice[];
     },
   });
 }
@@ -33,7 +33,7 @@ export function useInvoice(id: string) {
         .eq("id", id)
         .single();
       if (error) throw error;
-      return data;
+      return data as unknown as Invoice;
     },
   });
 }

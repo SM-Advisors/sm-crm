@@ -182,7 +182,7 @@ function LogInteractionDialog({
   const [occurredAt, setOccurredAt] = useState(new Date().toISOString().slice(0, 16));
   const logInteraction = useLogInteraction();
 
-  const allTypes: InteractionType[] = ["email", "call", "meeting", "sms", "linkedin", "note"];
+  const allTypes: InteractionType[] = ["email_sent", "call", "meeting", "text", "linkedin_message", "note"];
 
   function handleSave() {
     logInteraction.mutate(

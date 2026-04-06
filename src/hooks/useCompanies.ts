@@ -14,10 +14,10 @@ export function useCompanies() {
         `)
         .order("name", { ascending: true });
       if (error) throw error;
-      return data.map((c: any) => ({
-        ...c,
-        tags: c.company_tags?.map((ct: any) => ct.tag) ?? [],
-      }));
+      return (data as unknown as Record<string, unknown>[]).map((c) => ({
+        ...(c as Record<string, unknown>),
+        tags: ((c as Record<string, unknown>).company_tags as { tag: unknown }[] | null)?.map((ct) => ct.tag) ?? [],
+      })) as unknown as Company[];
     },
   });
 }
@@ -33,12 +33,14 @@ export function useCompany(id: string) {
           *,
           company_tags(tag:tags(id, name, color)),
           contacts(id, first_name, last_name, title, email, phone, last_contacted_at, last_contact_type, contact_categories(category)),
-          interactions(* , order:occurred_at.desc),
+          interactions(*),
           document_links(*)
         `)
         .eq("id", id)
         .single();
       if (error) throw error;
+
+      const d = data as Record<string, unknown>;
 
       const { data: salesDeals } = await supabase
         .from("sales_deals")
@@ -59,14 +61,14 @@ export function useCompany(id: string) {
         .order("invoice_date", { ascending: false });
 
       return {
-        ...data,
-        tags: data.company_tags?.map((ct: any) => ct.tag) ?? [],
-        contacts: data.contacts?.map((c: any) => ({
+        ...d,
+        tags: (d.company_tags as { tag: unknown }[] | null)?.map((ct) => ct.tag) ?? [],
+        contacts: ((d.contacts as Record<string, unknown>[] | null) ?? []).map((c) => ({
           ...c,
-          categories: c.contact_categories?.map((cc: any) => cc.category) ?? [],
-        })) ?? [],
-        interactions: data.interactions ?? [],
-        document_links: data.document_links ?? [],
+          categories: ((c.contact_categories as { category: string }[] | null) ?? []).map((cc) => cc.category),
+        })),
+        interactions: (d.interactions as unknown[] | null) ?? [],
+        document_links: (d.document_links as unknown[] | null) ?? [],
         sales_deals: salesDeals ?? [],
         delivery_engagements: engagements ?? [],
         invoices: invoices ?? [],
@@ -79,8 +81,8 @@ export function useCreateCompany() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: Partial<Company>) => {
-      const { tags, contact_count, ...rest } = input as any;
-      const { data, error } = await supabase.from("companies").insert(rest).select().single();
+      const { tags, contact_count, ...rest } = input as Record<string, unknown>;
+      const { data, error } = await supabase.from("companies").insert(rest as Record<string, unknown>).select().single();
       if (error) throw error;
       return data;
     },
@@ -92,10 +94,10 @@ export function useUpdateCompany() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Company> & { id: string }) => {
-      const { tags, contact_count, ...rest } = updates as any;
+      const { tags, contact_count, ...rest } = updates as Record<string, unknown>;
       const { data, error } = await supabase
         .from("companies")
-        .update({ ...rest, updated_at: new Date().toISOString() })
+        .update({ ...rest, updated_at: new Date().toISOString() } as Record<string, unknown>)
         .eq("id", id)
         .select()
         .single();
