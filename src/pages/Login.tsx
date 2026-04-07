@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { lovable } from "@/integrations/lovable/index";
 import { Button } from "@/components/ui/button";
 
 export default function Login() {
@@ -12,21 +11,27 @@ export default function Login() {
     setLoading(true);
     setError(null);
 
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
-    });
+    try {
+      const { signInWithCloudOAuth } = await import("@/lib/lovableAuth");
+      const result = await signInWithCloudOAuth("google", {
+        redirect_uri: window.location.origin,
+      });
 
-    if (result.error) {
-      setError(result.error.message || "Sign in failed. Please try again.");
+      if (result.error) {
+        setError(result.error.message || "Sign in failed. Please try again.");
+        setLoading(false);
+        return;
+      }
+
+      if (result.redirected) {
+        return;
+      }
+
+      navigate("/");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Sign in failed. Please try again.");
       setLoading(false);
-      return;
     }
-
-    if (result.redirected) {
-      return;
-    }
-
-    navigate("/");
   };
 
   return (
