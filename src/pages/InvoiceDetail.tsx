@@ -167,7 +167,7 @@ export default function InvoiceDetailPage() {
             </div>
             {editingDeal ? (
               <Select
-                value={(invoice as Record<string, unknown>).deal_id as string ?? "__none__"}
+                value={(invoice as unknown as Record<string, unknown>).deal_id as string ?? "__none__"}
                 onValueChange={(v) => {
                   updateInvoice.mutate(
                     { id: invoice.id, ...({ deal_id: v === "__none__" ? null : v } as Record<string, unknown>) } as { id: string },
