@@ -3,7 +3,9 @@ import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AuthGuard } from "@/components/AuthGuard";
 import { AppLayout } from "@/components/AppLayout";
+import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import ContactsPage from "./pages/Contacts";
 import ContactDetailPage from "./pages/ContactDetail";
@@ -35,7 +37,15 @@ const App = () => (
       <Sonner richColors position="top-right" />
       <BrowserRouter>
         <Routes>
-          <Route element={<AppLayout />}>
+          <Route path="/login" element={<Login />} />
+
+          <Route
+            element={
+              <AuthGuard>
+                <AppLayout />
+              </AuthGuard>
+            }
+          >
             <Route path="/" element={<Dashboard />} />
             <Route path="/dashboard" element={<Navigate to="/" replace />} />
 
