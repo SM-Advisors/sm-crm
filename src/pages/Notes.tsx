@@ -87,11 +87,11 @@ export default function NotesPage() {
   async function saveNote(): Promise<string | null> {
     setState("saving");
 
-    const payload: Record<string, unknown> = {
+    const payload = {
       note_type: noteType,
       title: title.trim() || null,
       content: transcript.trim(),
-      status: "draft",
+      status: "draft" as const,
     };
 
     if (savedNoteId) {
