@@ -41,6 +41,8 @@ import {
 } from "@/components/ui/select";
 import { useContact, useUpdateContact, useDeleteContact } from "@/hooks/useContacts";
 import { useLogInteraction } from "@/hooks/useInteractions";
+import { useCreateSalesDeal } from "@/hooks/useDeals";
+import { useCompanies } from "@/hooks/useCompanies";
 import { toast } from "sonner";
 import type { ContactWithDetails, InteractionType } from "@/types";
 import { INTERACTION_TYPE_LABELS, SALES_STAGE_LABELS, DELIVERY_STAGE_LABELS } from "@/types";
@@ -388,19 +390,73 @@ function EmailsTab({ contact }: { contact: ContactWithDetails }) {
 
 // Pipelines tab ───────────────────────────────────────────────────────────────
 
+const SALES_STAGES_LIST: { id: string; label: string }[] = [
+  { id: "qualification", label: "Qualification" },
+  { id: "needs_analysis", label: "Needs Analysis" },
+  { id: "proposal", label: "Proposal/Price Quote" },
+  { id: "cold_deal", label: "Cold Deal" },
+  { id: "closed_won", label: "Closed Won" },
+  { id: "closed_lost", label: "Closed Lost" },
+  { id: "service_complete", label: "Service Complete" },
+];
+
 function PipelinesTab({ contact }: { contact: ContactWithDetails }) {
   const navigate = useNavigate();
   const salesDeals = contact.sales_deals ?? [];
   const engagements = contact.delivery_engagements ?? [];
 
+  const [createDealOpen, setCreateDealOpen] = useState(false);
+  const [dealForm, setDealForm] = useState({
+    title: "",
+    stage: "qualification",
+    value: "",
+    expected_close_date: "",
+    description: "",
+  });
+  const createDeal = useCreateSalesDeal();
+  const { data: companies = [] } = useCompanies();
+
+  function handleCreateDeal() {
+    if (!dealForm.title.trim()) {
+      toast.error("Deal name is required");
+      return;
+    }
+    createDeal.mutate(
+      {
+        title: dealForm.title.trim(),
+        stage: dealForm.stage as import("@/types").SalesStage,
+        stage_order: 0,
+        contact_id: contact.id,
+        company_id: contact.company_id ?? undefined,
+        value: dealForm.value ? parseFloat(dealForm.value) : undefined,
+        expected_close_date: dealForm.expected_close_date || undefined,
+        description: dealForm.description.trim() || undefined,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Deal created");
+          setDealForm({ title: "", stage: "qualification", value: "", expected_close_date: "", description: "" });
+          setCreateDealOpen(false);
+        },
+        onError: () => toast.error("Failed to create deal"),
+      }
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {/* Sales */}
       <div>
-        <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
-          <Briefcase className="h-4 w-4" />
-          Sales Pipeline
-        </h3>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-semibold flex items-center gap-2">
+            <Briefcase className="h-4 w-4" />
+            Sales Pipeline
+          </h3>
+          <Button size="sm" onClick={() => setCreateDealOpen(true)} className="gap-1.5 h-7 text-xs">
+            <Plus className="h-3.5 w-3.5" />
+            Add Deal
+          </Button>
+        </div>
         {salesDeals.length === 0 ? (
           <p className="text-sm text-muted-foreground">No sales deals linked.</p>
         ) : (
@@ -466,6 +522,71 @@ function PipelinesTab({ contact }: { contact: ContactWithDetails }) {
           </div>
         )}
       </div>
+
+      {/* Create Deal Dialog */}
+      <Dialog open={createDealOpen} onOpenChange={setCreateDealOpen}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle>Create Deal for {[contact.first_name, contact.last_name].filter(Boolean).join(" ")}</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label>Deal Name *</Label>
+              <Input
+                placeholder="e.g., Acme Bank - AI Enablement"
+                value={dealForm.title}
+                onChange={(e) => setDealForm((f) => ({ ...f, title: e.target.value }))}
+                autoFocus
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Stage</Label>
+              <Select value={dealForm.stage} onValueChange={(v) => setDealForm((f) => ({ ...f, stage: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {SALES_STAGES_LIST.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Amount</Label>
+              <div className="relative">
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={dealForm.value}
+                  onChange={(e) => setDealForm((f) => ({ ...f, value: e.target.value }))}
+                  className="pr-8"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Closing Date</Label>
+              <Input
+                type="date"
+                value={dealForm.expected_close_date}
+                onChange={(e) => setDealForm((f) => ({ ...f, expected_close_date: e.target.value }))}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Description</Label>
+              <Textarea
+                placeholder="A few words about this deal"
+                value={dealForm.description}
+                onChange={(e) => setDealForm((f) => ({ ...f, description: e.target.value }))}
+                className="min-h-[80px] resize-y"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateDealOpen(false)}>Cancel</Button>
+            <Button onClick={handleCreateDeal} disabled={createDeal.isPending}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
