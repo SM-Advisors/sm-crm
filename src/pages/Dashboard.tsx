@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { formatDistanceToNow, parseISO, isThisWeek } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -214,6 +214,60 @@ function RecentActivityCard() {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+// Active stages: proposals still in pipeline (not closed, not delivered)
+const PROPOSAL_STAGES = ["qualification", "needs_analysis", "proposal", "cold_deal"];
+// Executing: won deals still being delivered
+const EXECUTING_STAGES = ["closed_won"];
+
+function ActiveDealsCard({ deals }: { deals: import("@/types").SalesDeal[] }) {
+  const navigate = useNavigate();
+  const [view, setView] = useState<"proposals" | "executing">("proposals");
+
+  const proposalDeals = deals.filter((d) => PROPOSAL_STAGES.includes(d.stage));
+  const executingDeals = deals.filter((d) => EXECUTING_STAGES.includes(d.stage));
+  const shown = view === "proposals" ? proposalDeals : executingDeals;
+
+  return (
+    <Card
+      className="border border-border shadow-sm dark:shadow-none cursor-pointer hover:bg-muted/30 transition-colors"
+      onClick={() => navigate("/sales-pipeline")}
+    >
+      <CardContent className="p-4">
+        <div className="flex items-start gap-3">
+          <div className="p-2 rounded-md bg-primary/10 shrink-0">
+            <TrendingUp size={18} className="text-primary" />
+          </div>
+          <div className="flex-1">
+            <div
+              className="flex gap-1 mb-1"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                className={`text-[10px] px-1.5 py-0.5 rounded ${view === "proposals" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+                onClick={() => setView("proposals")}
+              >
+                Proposals
+              </button>
+              <button
+                className={`text-[10px] px-1.5 py-0.5 rounded ${view === "executing" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+                onClick={() => setView("executing")}
+              >
+                Executing
+              </button>
+            </div>
+            <p className="text-lg font-semibold text-foreground">
+              {shown.length} {view === "proposals" ? "Open" : "Active"}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              ${shown.reduce((s, d) => s + (d.value ?? 0), 0).toLocaleString()}
+            </p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const { data: contacts = [] } = useContacts();
@@ -222,13 +276,10 @@ export default function Dashboard() {
   const { data: runs = [] } = useAgentRuns();
 
   const metrics = useMemo(() => {
-    const totalPipeline = deals
-      .filter((d) => !["won", "lost"].includes(d.stage))
-      .reduce((s, d) => s + (d.value ?? 0), 0);
+    const activeDeals = deals.filter((d) => !["closed_won", "closed_lost", "service_complete"].includes(d.stage));
 
-    const weightedPipeline = deals
-      .filter((d) => !["won", "lost"].includes(d.stage))
-      .reduce((s, d) => s + ((d.value ?? 0) * ((d.probability ?? 50) / 100)), 0);
+    const totalPipeline = activeDeals.reduce((s, d) => s + (d.value ?? 0), 0);
+    const weightedPipeline = activeDeals.reduce((s, d) => s + ((d.value ?? 0) * ((d.probability ?? 50) / 100)), 0);
 
     const outstanding = invoices
       .filter((i) => i.status !== "paid" && i.status !== "voided")
@@ -238,45 +289,13 @@ export default function Dashboard() {
       .flatMap((r) => (r as any).actions ?? [])
       .filter((a: AgentAction) => a.status === "pending").length;
 
-    return [
-      {
-        label: "Total Pipeline",
-        value: `$${totalPipeline.toLocaleString()}`,
-        icon: DollarSign,
-        onClick: () => navigate("/sales-pipeline"),
-      },
-      {
-        label: "Weighted Pipeline",
-        value: `$${Math.round(weightedPipeline).toLocaleString()}`,
-        icon: Target,
-        onClick: () => navigate("/sales-pipeline"),
-      },
-      {
-        label: "Total Contacts",
-        value: String(contacts.length),
-        icon: Users,
-        onClick: () => navigate("/contacts"),
-      },
-      {
-        label: "Outstanding Invoices",
-        value: `$${outstanding.toLocaleString()}`,
-        icon: FileText,
-        onClick: () => navigate("/invoices"),
-      },
-      {
-        label: "Active Deals",
-        value: String(deals.filter((d) => !["won", "lost"].includes(d.stage)).length),
-        icon: TrendingUp,
-        onClick: () => navigate("/sales-pipeline"),
-      },
-      {
-        label: "Agent Drafts Pending",
-        value: String(pendingDrafts),
-        icon: ClipboardList,
-        onClick: () => navigate("/agent-log"),
-      },
-    ];
-  }, [contacts, invoices, deals, runs, navigate]);
+    return {
+      totalPipeline,
+      weightedPipeline,
+      outstanding,
+      pendingDrafts,
+    };
+  }, [deals, invoices, runs]);
 
   return (
     <div className="space-y-6 p-6">
@@ -284,9 +303,37 @@ export default function Dashboard() {
 
       {/* Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        {metrics.map((m) => (
-          <MetricCard key={m.label} {...m} />
-        ))}
+        <MetricCard
+          label="Total Pipeline"
+          value={`$${metrics.totalPipeline.toLocaleString()}`}
+          icon={DollarSign}
+          onClick={() => navigate("/sales-pipeline")}
+        />
+        <MetricCard
+          label="Weighted Pipeline"
+          value={`$${Math.round(metrics.weightedPipeline).toLocaleString()}`}
+          icon={Target}
+          onClick={() => navigate("/sales-pipeline")}
+        />
+        <MetricCard
+          label="Total Contacts"
+          value={String(contacts.length)}
+          icon={Users}
+          onClick={() => navigate("/contacts")}
+        />
+        <MetricCard
+          label="Outstanding Invoices"
+          value={`$${metrics.outstanding.toLocaleString()}`}
+          icon={FileText}
+          onClick={() => navigate("/invoices")}
+        />
+        <ActiveDealsCard deals={deals} />
+        <MetricCard
+          label="Agent Drafts Pending"
+          value={String(metrics.pendingDrafts)}
+          icon={ClipboardList}
+          onClick={() => navigate("/agent-log")}
+        />
       </div>
 
       {/* Bottom section */}

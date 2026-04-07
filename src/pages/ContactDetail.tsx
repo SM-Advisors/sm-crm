@@ -15,6 +15,7 @@ import {
   Activity,
   Briefcase,
   Folder,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -38,8 +39,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useContact, useUpdateContact } from "@/hooks/useContacts";
+import { useQueryClient } from "@tanstack/react-query";
+import { useContact, useUpdateContact, useDeleteContact } from "@/hooks/useContacts";
 import { useLogInteraction } from "@/hooks/useInteractions";
+import { useCreateSalesDeal } from "@/hooks/useDeals";
+import { useCompanies } from "@/hooks/useCompanies";
+import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import type { ContactWithDetails, InteractionType } from "@/types";
 import { INTERACTION_TYPE_LABELS, SALES_STAGE_LABELS, DELIVERY_STAGE_LABELS } from "@/types";
@@ -205,12 +210,18 @@ function ActivitiesTab({ contact }: { contact: ContactWithDetails }) {
   const [type, setType] = useState<InteractionType>("call");
   const [subject, setSubject] = useState("");
   const [summary, setSummary] = useState("");
-  const [occurredAt, setOccurredAt] = useState(
-    new Date().toISOString().slice(0, 16)
-  );
+  const [occurredAt, setOccurredAt] = useState(() => {
+    const now = new Date();
+    const central = new Date(now.toLocaleString("en-US", { timeZone: "America/Chicago" }));
+    return central.getFullYear() + "-" +
+      String(central.getMonth() + 1).padStart(2, "0") + "-" +
+      String(central.getDate()).padStart(2, "0") + "T" +
+      String(central.getHours()).padStart(2, "0") + ":" +
+      String(central.getMinutes()).padStart(2, "0");
+  });
   const logInteraction = useLogInteraction();
 
-  const activityTypes: InteractionType[] = ["call", "meeting", "linkedin_message", "text"];
+  const activityTypes: InteractionType[] = ["call", "meeting", "conference", "linkedin_message", "text"];
   const activities = (contact.interactions ?? []).filter((i) =>
     activityTypes.includes(i.type as InteractionType)
   );
@@ -381,19 +392,73 @@ function EmailsTab({ contact }: { contact: ContactWithDetails }) {
 
 // Pipelines tab ───────────────────────────────────────────────────────────────
 
+const SALES_STAGES_LIST: { id: string; label: string }[] = [
+  { id: "qualification", label: "Qualification" },
+  { id: "needs_analysis", label: "Needs Analysis" },
+  { id: "proposal", label: "Proposal/Price Quote" },
+  { id: "cold_deal", label: "Cold Deal" },
+  { id: "closed_won", label: "Closed Won" },
+  { id: "closed_lost", label: "Closed Lost" },
+  { id: "service_complete", label: "Service Complete" },
+];
+
 function PipelinesTab({ contact }: { contact: ContactWithDetails }) {
   const navigate = useNavigate();
   const salesDeals = contact.sales_deals ?? [];
   const engagements = contact.delivery_engagements ?? [];
 
+  const [createDealOpen, setCreateDealOpen] = useState(false);
+  const [dealForm, setDealForm] = useState({
+    title: "",
+    stage: "qualification",
+    value: "",
+    expected_close_date: "",
+    description: "",
+  });
+  const createDeal = useCreateSalesDeal();
+  const { data: companies = [] } = useCompanies();
+
+  function handleCreateDeal() {
+    if (!dealForm.title.trim()) {
+      toast.error("Deal name is required");
+      return;
+    }
+    createDeal.mutate(
+      {
+        title: dealForm.title.trim(),
+        stage: dealForm.stage as import("@/types").SalesStage,
+        stage_order: 0,
+        contact_id: contact.id,
+        company_id: contact.company_id ?? undefined,
+        value: dealForm.value ? parseFloat(dealForm.value) : undefined,
+        expected_close_date: dealForm.expected_close_date || undefined,
+        description: dealForm.description.trim() || undefined,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Deal created");
+          setDealForm({ title: "", stage: "qualification", value: "", expected_close_date: "", description: "" });
+          setCreateDealOpen(false);
+        },
+        onError: () => toast.error("Failed to create deal"),
+      }
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {/* Sales */}
       <div>
-        <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
-          <Briefcase className="h-4 w-4" />
-          Sales Pipeline
-        </h3>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-semibold flex items-center gap-2">
+            <Briefcase className="h-4 w-4" />
+            Sales Pipeline
+          </h3>
+          <Button size="sm" onClick={() => setCreateDealOpen(true)} className="gap-1.5 h-7 text-xs">
+            <Plus className="h-3.5 w-3.5" />
+            Add Deal
+          </Button>
+        </div>
         {salesDeals.length === 0 ? (
           <p className="text-sm text-muted-foreground">No sales deals linked.</p>
         ) : (
@@ -459,6 +524,71 @@ function PipelinesTab({ contact }: { contact: ContactWithDetails }) {
           </div>
         )}
       </div>
+
+      {/* Create Deal Dialog */}
+      <Dialog open={createDealOpen} onOpenChange={setCreateDealOpen}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle>Create Deal for {[contact.first_name, contact.last_name].filter(Boolean).join(" ")}</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label>Deal Name *</Label>
+              <Input
+                placeholder="e.g., Acme Bank - AI Enablement"
+                value={dealForm.title}
+                onChange={(e) => setDealForm((f) => ({ ...f, title: e.target.value }))}
+                autoFocus
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Stage</Label>
+              <Select value={dealForm.stage} onValueChange={(v) => setDealForm((f) => ({ ...f, stage: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {SALES_STAGES_LIST.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Amount</Label>
+              <div className="relative">
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={dealForm.value}
+                  onChange={(e) => setDealForm((f) => ({ ...f, value: e.target.value }))}
+                  className="pr-8"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Closing Date</Label>
+              <Input
+                type="date"
+                value={dealForm.expected_close_date}
+                onChange={(e) => setDealForm((f) => ({ ...f, expected_close_date: e.target.value }))}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Description</Label>
+              <Textarea
+                placeholder="A few words about this deal"
+                value={dealForm.description}
+                onChange={(e) => setDealForm((f) => ({ ...f, description: e.target.value }))}
+                className="min-h-[80px] resize-y"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateDealOpen(false)}>Cancel</Button>
+            <Button onClick={handleCreateDeal} disabled={createDeal.isPending}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -467,9 +597,44 @@ function PipelinesTab({ contact }: { contact: ContactWithDetails }) {
 
 function FilesTab({ contact }: { contact: ContactWithDetails }) {
   const docs = contact.document_links ?? [];
+  const qc = useQueryClient();
+  const [addOpen, setAddOpen] = useState(false);
+  const [linkTitle, setLinkTitle] = useState("");
+  const [linkUrl, setLinkUrl] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function handleAddLink() {
+    if (!linkTitle.trim() || !linkUrl.trim()) {
+      toast.error("Title and URL are required");
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase
+      .from("document_links")
+      .insert({
+        linkable_type: "contact",
+        linkable_id: contact.id,
+        title: linkTitle.trim(),
+        url: linkUrl.trim(),
+      });
+    setSaving(false);
+    if (error) { toast.error("Failed to add link"); return; }
+    toast.success("Link added");
+    setLinkTitle("");
+    setLinkUrl("");
+    setAddOpen(false);
+    qc.invalidateQueries({ queryKey: ["contact", contact.id] });
+  }
 
   return (
     <div className="flex flex-col gap-4">
+      <div className="flex justify-end">
+        <Button size="sm" onClick={() => setAddOpen(true)} className="gap-1.5">
+          <Plus className="h-4 w-4" />
+          Add Link
+        </Button>
+      </div>
+
       {docs.length === 0 ? (
         <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
           No files linked yet.
@@ -491,6 +656,37 @@ function FilesTab({ contact }: { contact: ContactWithDetails }) {
           ))}
         </div>
       )}
+
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Document Link</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label>Title *</Label>
+              <Input
+                placeholder="e.g., Engagement Letter"
+                value={linkTitle}
+                onChange={(e) => setLinkTitle(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>URL *</Label>
+              <Input
+                placeholder="https://drive.google.com/..."
+                value={linkUrl}
+                onChange={(e) => setLinkUrl(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
+            <Button onClick={handleAddLink} disabled={saving}>Add Link</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -604,7 +800,9 @@ export default function ContactDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [editOpen, setEditOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const { data: contact, isLoading, isError } = useContact(id!);
+  const deleteContact = useDeleteContact();
 
   if (isLoading) {
     return (
@@ -650,15 +848,42 @@ export default function ContactDetailPage() {
                 <p className="text-sm text-muted-foreground mt-0.5">{contact.title}</p>
               )}
             </div>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-8 w-8 shrink-0"
-              onClick={() => setEditOpen(true)}
-            >
-              <Pencil className="h-3.5 w-3.5" />
-            </Button>
+            <div className="flex gap-1 shrink-0">
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8"
+                onClick={() => setEditOpen(true)}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 text-destructive hover:text-destructive"
+                onClick={() => {
+                  if (!confirmDelete) {
+                    setConfirmDelete(true);
+                    return;
+                  }
+                  deleteContact.mutate(id!, {
+                    onSuccess: () => {
+                      toast.success("Contact deleted");
+                      navigate("/contacts");
+                    },
+                    onError: () => toast.error("Failed to delete contact"),
+                  });
+                }}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
+          {confirmDelete && (
+            <div className="mt-2 p-2 bg-destructive/10 border border-destructive/20 rounded text-xs text-destructive">
+              Click the trash icon again to confirm deletion. <button className="underline ml-1" onClick={() => setConfirmDelete(false)}>Cancel</button>
+            </div>
+          )}
 
           {/* Categories */}
           {categories.length > 0 && (

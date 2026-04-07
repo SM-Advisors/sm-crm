@@ -1,13 +1,32 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, parseISO } from "date-fns";
 import { UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type DataTableColumn } from "@/components/DataTable";
-import { useContacts } from "@/hooks/useContacts";
-import type { Contact } from "@/types";
-import { INTERACTION_TYPE_LABELS } from "@/types";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useContacts, useCreateContact, useDeleteContact } from "@/hooks/useContacts";
+import { useCompanies } from "@/hooks/useCompanies";
+import type { Contact, ContactCategory } from "@/types";
+import { INTERACTION_TYPE_LABELS, CATEGORY_LABELS } from "@/types";
+import { toast } from "sonner";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -195,12 +214,188 @@ function toExportRow(c: Contact): Record<string, unknown> {
   };
 }
 
+// ─── Create Contact Dialog ───────────────────────────────────────────────────
+
+const ALL_CATEGORIES: ContactCategory[] = [
+  "prospect",
+  "client",
+  "center_of_influence",
+  "former_client",
+  "personal",
+];
+
+function CreateContactDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}) {
+  const navigate = useNavigate();
+  const createContact = useCreateContact();
+  const { data: companies = [] } = useCompanies();
+
+  const [form, setForm] = useState({
+    first_name: "",
+    last_name: "",
+    title: "",
+    email: "",
+    phone: "",
+    company_id: "",
+    linkedin_url: "",
+    description: "",
+    category: "" as ContactCategory | "",
+  });
+
+  function handleCreate() {
+    if (!form.first_name.trim() && !form.last_name.trim()) {
+      toast.error("Name is required");
+      return;
+    }
+    const { category, ...rest } = form;
+    createContact.mutate(
+      {
+        ...rest,
+        company_id: rest.company_id || null,
+        categories: category ? [category] : [],
+      },
+      {
+        onSuccess: (data) => {
+          toast.success("Contact created");
+          setForm({
+            first_name: "",
+            last_name: "",
+            title: "",
+            email: "",
+            phone: "",
+            company_id: "",
+            linkedin_url: "",
+            description: "",
+            category: "",
+          });
+          onOpenChange(false);
+          if (data?.id) navigate(`/contacts/${data.id}`);
+        },
+        onError: () => toast.error("Failed to create contact"),
+      }
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Add Contact</DialogTitle>
+        </DialogHeader>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-1.5">
+            <Label>First Name *</Label>
+            <Input
+              value={form.first_name}
+              onChange={(e) => setForm((f) => ({ ...f, first_name: e.target.value }))}
+              autoFocus
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Last Name *</Label>
+            <Input
+              value={form.last_name}
+              onChange={(e) => setForm((f) => ({ ...f, last_name: e.target.value }))}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5 col-span-2">
+            <Label>Company</Label>
+            <Select
+              value={form.company_id || "__none__"}
+              onValueChange={(v) => setForm((f) => ({ ...f, company_id: v === "__none__" ? "" : v }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select company…" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">None</SelectItem>
+                {companies.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Category</Label>
+            <Select
+              value={form.category || "__none__"}
+              onValueChange={(v) => setForm((f) => ({ ...f, category: (v === "__none__" ? "" : v) as ContactCategory | "" }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select category…" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">None</SelectItem>
+                {ALL_CATEGORIES.map((cat) => (
+                  <SelectItem key={cat} value={cat}>
+                    {CATEGORY_LABELS[cat]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Title</Label>
+            <Input
+              value={form.title}
+              onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Email</Label>
+            <Input
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Phone</Label>
+            <Input
+              value={form.phone}
+              onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5 col-span-2">
+            <Label>LinkedIn URL</Label>
+            <Input
+              value={form.linkedin_url}
+              onChange={(e) => setForm((f) => ({ ...f, linkedin_url: e.target.value }))}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5 col-span-2">
+            <Label>Notes</Label>
+            <Textarea
+              rows={3}
+              value={form.description}
+              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleCreate} disabled={createContact.isPending}>
+            Create Contact
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ContactsPage() {
   const navigate = useNavigate();
   const { data: contacts = [], isLoading } = useContacts();
   const columns = useMemo(() => buildColumns(navigate), [navigate]);
+  const [createOpen, setCreateOpen] = useState(false);
+  const deleteContact = useDeleteContact();
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -211,7 +406,7 @@ export default function ContactsPage() {
             {isLoading ? "Loading…" : `${contacts.length} contacts`}
           </p>
         </div>
-        <Button onClick={() => navigate("/contacts/new")} className="gap-2">
+        <Button onClick={() => setCreateOpen(true)} className="gap-2">
           <UserPlus className="h-4 w-4" />
           Add Contact
         </Button>
@@ -228,8 +423,15 @@ export default function ContactsPage() {
           exportName="contacts"
           toExportRow={toExportRow}
           searchPlaceholder="Search contacts…"
+          onBulkDelete={(ids) => {
+            Promise.all(ids.map((id) => deleteContact.mutateAsync(id)))
+              .then(() => toast.success(`${ids.length} contact(s) deleted`))
+              .catch(() => toast.error("Failed to delete some contacts"));
+          }}
         />
       )}
+
+      <CreateContactDialog open={createOpen} onOpenChange={setCreateOpen} />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import {
   useSalesDeals,
   useCreateSalesDeal,
   useUpdateSalesDeal,
+  useDeleteSalesDeal,
 } from "@/hooks/useDeals";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useContacts } from "@/hooks/useContacts";
@@ -27,6 +28,7 @@ export default function SalesPipelinePage() {
   const { data: contacts = [] } = useContacts();
   const createDeal = useCreateSalesDeal();
   const updateDeal = useUpdateSalesDeal();
+  const deleteDeal = useDeleteSalesDeal();
 
   const cards: KanbanCard[] = deals.map((d) => ({
     id: d.id,
@@ -75,6 +77,40 @@ export default function SalesPipelinePage() {
     );
   }
 
+  function handleUpdate(id: string, data: {
+    title: string;
+    stage: string;
+    company_id?: string;
+    contact_id?: string;
+    value?: number;
+    expected_close_date?: string;
+    description?: string;
+  }) {
+    updateDeal.mutate(
+      {
+        id,
+        title: data.title,
+        stage: data.stage as import("@/types").SalesStage,
+        company_id: data.company_id ?? null,
+        contact_id: data.contact_id ?? null,
+        value: data.value ?? null,
+        expected_close_date: data.expected_close_date ?? null,
+        description: data.description ?? null,
+      },
+      {
+        onSuccess: () => toast.success("Deal updated"),
+        onError: () => toast.error("Failed to update deal"),
+      }
+    );
+  }
+
+  function handleDelete(id: string) {
+    deleteDeal.mutate(id, {
+      onSuccess: () => toast.success("Deal deleted"),
+      onError: () => toast.error("Failed to delete deal"),
+    });
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64 text-muted-foreground p-6">
@@ -95,6 +131,8 @@ export default function SalesPipelinePage() {
         stages={SALES_STAGES}
         onCardMove={handleCardMove}
         onCreate={handleCreate}
+        onUpdate={handleUpdate}
+        onDelete={handleDelete}
         onCardClick={(card) => navigate(`/contacts/${card.contact?.id ?? ""}`)}
         companies={companies}
         contacts={contacts}
