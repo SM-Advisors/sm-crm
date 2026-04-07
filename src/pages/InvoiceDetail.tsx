@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { format, parseISO } from "date-fns";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ArrowLeft, ExternalLink, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +14,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useInvoice } from "@/hooks/useInvoices";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useInvoice, useUpdateInvoice } from "@/hooks/useInvoices";
+import { useSalesDeals } from "@/hooks/useDeals";
+import { toast } from "sonner";
+import { INVOICE_STATUS_LABELS } from "@/types";
+import type { InvoiceStatus } from "@/types";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -62,11 +74,21 @@ export default function InvoiceDetailPage() {
     );
   }
 
+  const updateInvoice = useUpdateInvoice();
+  const { data: deals = [] } = useSalesDeals();
+  const [editingStatus, setEditingStatus] = useState(false);
+  const [editingDeal, setEditingDeal] = useState(false);
+
   const lineItems = (invoice as any).line_items ?? [];
   const payments = (invoice as any).payments ?? [];
   const amountPaid = (invoice.total_amount ?? 0) - (invoice.balance_due ?? 0);
   const balance = invoice.balance_due ?? 0;
   const statusCls = STATUS_COLORS[invoice.status ?? ""] ?? "";
+
+  // Filter deals to those for the same company
+  const companyDeals = invoice.company_id
+    ? deals.filter((d) => d.company_id === invoice.company_id)
+    : deals;
 
   return (
     <div className="flex flex-col gap-6 p-6 max-w-4xl">
@@ -84,9 +106,40 @@ export default function InvoiceDetailPage() {
             {invoice.invoice_number ?? `INV-${invoice.id.slice(0, 8)}`}
           </h1>
         </div>
-        <Badge variant="outline" className={`text-sm capitalize ${statusCls}`}>
-          {invoice.status}
-        </Badge>
+        <div className="flex items-center gap-2">
+          {editingStatus ? (
+            <Select
+              value={invoice.status}
+              onValueChange={(v) => {
+                updateInvoice.mutate(
+                  { id: invoice.id, status: v as InvoiceStatus },
+                  {
+                    onSuccess: () => { toast.success("Status updated"); setEditingStatus(false); },
+                    onError: () => toast.error("Failed to update status"),
+                  }
+                );
+              }}
+            >
+              <SelectTrigger className="w-32 h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.entries(INVOICE_STATUS_LABELS) as [InvoiceStatus, string][]).map(([k, v]) => (
+                  <SelectItem key={k} value={k}>{v}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <Badge
+              variant="outline"
+              className={`text-sm capitalize cursor-pointer ${statusCls}`}
+              onClick={() => setEditingStatus(true)}
+            >
+              {invoice.status}
+              <Pencil className="h-3 w-3 ml-1.5 opacity-50" />
+            </Badge>
+          )}
+        </div>
       </div>
 
       {/* Top metadata cards */}
@@ -104,10 +157,42 @@ export default function InvoiceDetailPage() {
         </Card>
         <Card>
           <CardContent className="pt-4">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide">Engagement</p>
-            <p className="text-sm font-medium mt-1">
-              {(invoice as any).engagement?.title ?? "—"}
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">Linked Deal</p>
+              {!editingDeal && (
+                <button className="text-muted-foreground hover:text-foreground" onClick={() => setEditingDeal(true)}>
+                  <Pencil className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+            {editingDeal ? (
+              <Select
+                value={(invoice as Record<string, unknown>).deal_id as string ?? "__none__"}
+                onValueChange={(v) => {
+                  updateInvoice.mutate(
+                    { id: invoice.id, ...({ deal_id: v === "__none__" ? null : v } as Record<string, unknown>) } as { id: string },
+                    {
+                      onSuccess: () => { toast.success("Deal linked"); setEditingDeal(false); },
+                      onError: () => toast.error("Failed to link deal"),
+                    }
+                  );
+                }}
+              >
+                <SelectTrigger className="mt-1 h-8">
+                  <SelectValue placeholder="Select a deal…" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">None</SelectItem>
+                  {companyDeals.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>{d.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <p className="text-sm font-medium mt-1">
+                {(invoice as any).engagement?.title ?? "—"}
+              </p>
+            )}
           </CardContent>
         </Card>
         <Card>

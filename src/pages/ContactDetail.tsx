@@ -39,10 +39,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useQueryClient } from "@tanstack/react-query";
 import { useContact, useUpdateContact, useDeleteContact } from "@/hooks/useContacts";
 import { useLogInteraction } from "@/hooks/useInteractions";
 import { useCreateSalesDeal } from "@/hooks/useDeals";
 import { useCompanies } from "@/hooks/useCompanies";
+import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import type { ContactWithDetails, InteractionType } from "@/types";
 import { INTERACTION_TYPE_LABELS, SALES_STAGE_LABELS, DELIVERY_STAGE_LABELS } from "@/types";
@@ -595,9 +597,44 @@ function PipelinesTab({ contact }: { contact: ContactWithDetails }) {
 
 function FilesTab({ contact }: { contact: ContactWithDetails }) {
   const docs = contact.document_links ?? [];
+  const qc = useQueryClient();
+  const [addOpen, setAddOpen] = useState(false);
+  const [linkTitle, setLinkTitle] = useState("");
+  const [linkUrl, setLinkUrl] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function handleAddLink() {
+    if (!linkTitle.trim() || !linkUrl.trim()) {
+      toast.error("Title and URL are required");
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase
+      .from("document_links")
+      .insert({
+        linkable_type: "contact",
+        linkable_id: contact.id,
+        title: linkTitle.trim(),
+        url: linkUrl.trim(),
+      });
+    setSaving(false);
+    if (error) { toast.error("Failed to add link"); return; }
+    toast.success("Link added");
+    setLinkTitle("");
+    setLinkUrl("");
+    setAddOpen(false);
+    qc.invalidateQueries({ queryKey: ["contact", contact.id] });
+  }
 
   return (
     <div className="flex flex-col gap-4">
+      <div className="flex justify-end">
+        <Button size="sm" onClick={() => setAddOpen(true)} className="gap-1.5">
+          <Plus className="h-4 w-4" />
+          Add Link
+        </Button>
+      </div>
+
       {docs.length === 0 ? (
         <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
           No files linked yet.
@@ -619,6 +656,37 @@ function FilesTab({ contact }: { contact: ContactWithDetails }) {
           ))}
         </div>
       )}
+
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Document Link</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label>Title *</Label>
+              <Input
+                placeholder="e.g., Engagement Letter"
+                value={linkTitle}
+                onChange={(e) => setLinkTitle(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>URL *</Label>
+              <Input
+                placeholder="https://drive.google.com/..."
+                value={linkUrl}
+                onChange={(e) => setLinkUrl(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
+            <Button onClick={handleAddLink} disabled={saving}>Add Link</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

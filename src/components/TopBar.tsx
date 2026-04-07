@@ -16,9 +16,59 @@ interface SearchResult {
   href: string;
 }
 
+function UserMenu() {
+  const { user, signOut } = useAuth();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Derive initials from email or user metadata
+  const email = user?.email ?? "";
+  const meta = user?.user_metadata ?? {};
+  const fullName = (meta.full_name as string) || (meta.name as string) || "";
+  const initials = fullName
+    ? fullName.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()
+    : email.slice(0, 2).toUpperCase();
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setMenuOpen((v) => !v)}
+        className="w-9 h-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium"
+        title={email}
+      >
+        {initials}
+      </button>
+      {menuOpen && (
+        <div className="absolute right-0 top-full mt-1 w-56 bg-popover border border-border rounded-lg shadow-lg z-50 py-1">
+          <div className="px-3 py-2 border-b border-border">
+            {fullName && <p className="text-sm font-medium">{fullName}</p>}
+            <p className="text-xs text-muted-foreground truncate">{email}</p>
+          </div>
+          <button
+            className="w-full text-left px-3 py-2 text-sm text-destructive hover:bg-muted transition-colors"
+            onClick={() => {
+              setMenuOpen(false);
+              signOut();
+            }}
+          >
+            Sign out
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function TopBar() {
   const { theme, toggleTheme } = useTheme();
-  const { signOut } = useAuth();
   const navigate = useNavigate();
 
   const [query, setQuery] = useState("");
@@ -184,13 +234,7 @@ export function TopBar() {
         >
           {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
         </button>
-        <button
-          onClick={signOut}
-          className="w-9 h-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium"
-          title="Sign out"
-        >
-          CK
-        </button>
+        <UserMenu />
       </div>
     </header>
   );

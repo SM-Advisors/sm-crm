@@ -39,7 +39,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCompany, useUpdateCompany, useDeleteCompany } from "@/hooks/useCompanies";
+import { supabase } from "@/lib/supabase";
 import { useLogInteraction } from "@/hooks/useInteractions";
 import { toast } from "sonner";
 import type { Company, InteractionType } from "@/types";
@@ -355,23 +357,91 @@ function InvoicesTab({ company }: { company: any }) {
 
 function FilesTab({ company }: { company: any }) {
   const docs = company.document_links ?? [];
+  const qc = useQueryClient();
+  const [addOpen, setAddOpen] = useState(false);
+  const [linkTitle, setLinkTitle] = useState("");
+  const [linkUrl, setLinkUrl] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function handleAddLink() {
+    if (!linkTitle.trim() || !linkUrl.trim()) {
+      toast.error("Title and URL are required");
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase
+      .from("document_links")
+      .insert({
+        linkable_type: "company",
+        linkable_id: company.id,
+        title: linkTitle.trim(),
+        url: linkUrl.trim(),
+      });
+    setSaving(false);
+    if (error) { toast.error("Failed to add link"); return; }
+    toast.success("Link added");
+    setLinkTitle("");
+    setLinkUrl("");
+    setAddOpen(false);
+    qc.invalidateQueries({ queryKey: ["company", company.id] });
+  }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-4">
+      <div className="flex justify-end">
+        <Button size="sm" onClick={() => setAddOpen(true)} className="gap-1.5">
+          <Plus className="h-4 w-4" />
+          Add Link
+        </Button>
+      </div>
+
       {docs.length === 0 ? (
         <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
           No files linked yet.
         </div>
       ) : (
-        docs.map((doc: any) => (
-          <a key={doc.id} href={doc.url} target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-3 p-3 rounded-md border hover:bg-muted/40 transition-colors">
-            <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-            <span className="text-sm flex-1">{doc.title}</span>
-            <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-          </a>
-        ))
+        <div className="flex flex-col gap-2">
+          {docs.map((doc: any) => (
+            <a key={doc.id} href={doc.url} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-3 p-3 rounded-md border hover:bg-muted/40 transition-colors">
+              <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span className="text-sm flex-1">{doc.title}</span>
+              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+            </a>
+          ))}
+        </div>
       )}
+
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Document Link</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label>Title *</Label>
+              <Input
+                placeholder="e.g., Engagement Letter"
+                value={linkTitle}
+                onChange={(e) => setLinkTitle(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>URL *</Label>
+              <Input
+                placeholder="https://drive.google.com/..."
+                value={linkUrl}
+                onChange={(e) => setLinkUrl(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
+            <Button onClick={handleAddLink} disabled={saving}>Add Link</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
