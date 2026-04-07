@@ -45,7 +45,7 @@ export default function DeliveryPipelinePage() {
     );
   }
 
-  function handleCreate(data: {
+  async function handleCreate(data: {
     title: string;
     stage: string;
     company_id?: string;
@@ -53,20 +53,20 @@ export default function DeliveryPipelinePage() {
     value?: number;
   }) {
     const stageCards = cards.filter((c) => c.stage === data.stage);
-    createEngagement.mutate(
-      {
+    try {
+      await createEngagement.mutateAsync({
         title: data.title,
         stage: data.stage as import("@/types").DeliveryStage,
         stage_order: stageCards.length,
         company_id: data.company_id,
         contact_id: data.contact_id,
         total_engagement_value: data.value ?? 0,
-      },
-      {
-        onSuccess: () => toast.success("Engagement created"),
-        onError: () => toast.error("Failed to create engagement"),
-      }
-    );
+      });
+      toast.success("Engagement created");
+    } catch {
+      toast.error("Failed to create engagement");
+      throw new Error("create failed");
+    }
   }
 
   if (isLoading) {

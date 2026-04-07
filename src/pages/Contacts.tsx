@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useContacts, useCreateContact, useDeleteContact } from "@/hooks/useContacts";
 import { useCompanies } from "@/hooks/useCompanies";
 import type { Contact, ContactCategory } from "@/types";
@@ -305,20 +306,13 @@ function CreateContactDialog({
           </div>
           <div className="flex flex-col gap-1.5 col-span-2">
             <Label>Company</Label>
-            <Select
-              value={form.company_id || "__none__"}
-              onValueChange={(v) => setForm((f) => ({ ...f, company_id: v === "__none__" ? "" : v }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select company…" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">None</SelectItem>
-                {companies.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              options={companies.map((c) => ({ value: c.id, label: c.name }))}
+              value={form.company_id}
+              onValueChange={(v) => setForm((f) => ({ ...f, company_id: v }))}
+              placeholder="Select company…"
+              searchPlaceholder="Type to search companies…"
+            />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label>Category</Label>

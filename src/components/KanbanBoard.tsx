@@ -9,7 +9,7 @@ import {
   Draggable,
   type DropResult,
 } from "@hello-pangea/dnd";
-import { Plus, GripVertical, DollarSign, Building2, User, CalendarIcon, Pencil, Trash2 } from "lucide-react";
+import { Plus, GripVertical, DollarSign, Building2, User, CalendarIcon, Pencil, Trash2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -31,6 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -71,9 +72,9 @@ interface KanbanBoardProps {
   cards: KanbanCard[];
   stages: KanbanStage[];
   onCardMove: (cardId: string, newStage: string, newOrder: number) => void;
-  onCreate?: (data: DealFormData) => void;
-  onUpdate?: (id: string, data: DealFormData) => void;
-  onDelete?: (id: string) => void;
+  onCreate?: (data: DealFormData) => Promise<void>;
+  onUpdate?: (id: string, data: DealFormData) => Promise<void>;
+  onDelete?: (id: string) => Promise<void>;
   onCardClick?: (card: KanbanCard) => void;
   companies?: { id: string; name: string }[];
   contacts?: { id: string; first_name?: string; last_name?: string }[];
@@ -282,25 +283,39 @@ function AddCardDialog({
   const [value, setValue] = useState("");
   const [closingDate, setClosingDate] = useState("");
   const [description, setDescription] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  function handleCreate() {
+  const companyOptions = (companies ?? []).map((c) => ({ value: c.id, label: c.name }));
+  const contactOptions = (contacts ?? []).map((c) => ({
+    value: c.id,
+    label: [c.first_name, c.last_name].filter(Boolean).join(" "),
+  }));
+
+  async function handleCreate() {
     if (!title.trim()) { toast.error("Deal name is required"); return; }
-    onCreate?.({
-      title: title.trim(),
-      stage,
-      company_id: companyId || undefined,
-      contact_id: contactId || undefined,
-      value: value ? parseFloat(value) : undefined,
-      expected_close_date: closingDate || undefined,
-      description: description.trim() || undefined,
-    });
-    setTitle(""); setValue(""); setCompanyId(""); setContactId("");
-    setClosingDate(""); setDescription("");
-    onOpenChange(false);
+    setSubmitting(true);
+    try {
+      await onCreate?.({
+        title: title.trim(),
+        stage,
+        company_id: companyId || undefined,
+        contact_id: contactId || undefined,
+        value: value ? parseFloat(value) : undefined,
+        expected_close_date: closingDate || undefined,
+        description: description.trim() || undefined,
+      });
+      setTitle(""); setValue(""); setCompanyId(""); setContactId("");
+      setClosingDate(""); setDescription("");
+      onOpenChange(false);
+    } catch {
+      // error toast is handled by the parent mutation's onError
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(v) => { if (!submitting) onOpenChange(v); }}>
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader><DialogTitle>Create Deal</DialogTitle></DialogHeader>
         <div className="flex flex-col gap-4">
@@ -316,36 +331,30 @@ function AddCardDialog({
           </div>
 
           {/* Company Name */}
-          {companies && companies.length > 0 && (
+          {companyOptions.length > 0 && (
             <div className="flex flex-col gap-1.5">
               <Label>Company Name</Label>
-              <Select value={companyId || "__none__"} onValueChange={(v) => setCompanyId(v === "__none__" ? "" : v)}>
-                <SelectTrigger><SelectValue placeholder="Select company…" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">None</SelectItem>
-                  {companies.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={companyOptions}
+                value={companyId}
+                onValueChange={setCompanyId}
+                placeholder="Select company…"
+                searchPlaceholder="Type to search companies…"
+              />
             </div>
           )}
 
           {/* Contact Name */}
-          {contacts && contacts.length > 0 && (
+          {contactOptions.length > 0 && (
             <div className="flex flex-col gap-1.5">
               <Label>Contact Name</Label>
-              <Select value={contactId || "__none__"} onValueChange={(v) => setContactId(v === "__none__" ? "" : v)}>
-                <SelectTrigger><SelectValue placeholder="Select contact…" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">None</SelectItem>
-                  {contacts.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {[c.first_name, c.last_name].filter(Boolean).join(" ")}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={contactOptions}
+                value={contactId}
+                onValueChange={setContactId}
+                placeholder="Select contact…"
+                searchPlaceholder="Type to search contacts…"
+              />
             </div>
           )}
 
@@ -399,8 +408,11 @@ function AddCardDialog({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleCreate}>Save</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>Cancel</Button>
+          <Button onClick={handleCreate} disabled={submitting}>
+            {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Save
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -434,34 +446,55 @@ function EditCardDialog({
   const [closingDate, setClosingDate] = useState(card?.close_date ?? "");
   const [description, setDescription] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const companyOptions = (companies ?? []).map((c) => ({ value: c.id, label: c.name }));
+  const contactOptions = (contacts ?? []).map((c) => ({
+    value: c.id,
+    label: [c.first_name, c.last_name].filter(Boolean).join(" "),
+  }));
 
   if (!card) return null;
 
-  function handleSave() {
+  async function handleSave() {
     if (!title.trim()) { toast.error("Deal name is required"); return; }
-    onUpdate?.(card!.id, {
-      title: title.trim(),
-      stage,
-      company_id: companyId || undefined,
-      contact_id: contactId || undefined,
-      value: value ? parseFloat(value) : undefined,
-      expected_close_date: closingDate || undefined,
-      description: description.trim() || undefined,
-    });
-    onOpenChange(false);
+    setSubmitting(true);
+    try {
+      await onUpdate?.(card!.id, {
+        title: title.trim(),
+        stage,
+        company_id: companyId || undefined,
+        contact_id: contactId || undefined,
+        value: value ? parseFloat(value) : undefined,
+        expected_close_date: closingDate || undefined,
+        description: description.trim() || undefined,
+      });
+      onOpenChange(false);
+    } catch {
+      // error toast handled by parent
+    } finally {
+      setSubmitting(false);
+    }
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!confirmDelete) {
       setConfirmDelete(true);
       return;
     }
-    onDelete?.(card!.id);
-    onOpenChange(false);
+    setSubmitting(true);
+    try {
+      await onDelete?.(card!.id);
+      onOpenChange(false);
+    } catch {
+      // error toast handled by parent
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
-    <Dialog open={!!card} onOpenChange={onOpenChange}>
+    <Dialog open={!!card} onOpenChange={(v) => { if (!submitting) onOpenChange(v); }}>
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader><DialogTitle>Edit Deal</DialogTitle></DialogHeader>
         <div className="flex flex-col gap-4">
@@ -470,35 +503,29 @@ function EditCardDialog({
             <Input value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
           </div>
 
-          {companies && companies.length > 0 && (
+          {companyOptions.length > 0 && (
             <div className="flex flex-col gap-1.5">
               <Label>Company Name</Label>
-              <Select value={companyId || "__none__"} onValueChange={(v) => setCompanyId(v === "__none__" ? "" : v)}>
-                <SelectTrigger><SelectValue placeholder="Select company…" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">None</SelectItem>
-                  {companies.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={companyOptions}
+                value={companyId}
+                onValueChange={setCompanyId}
+                placeholder="Select company…"
+                searchPlaceholder="Type to search companies…"
+              />
             </div>
           )}
 
-          {contacts && contacts.length > 0 && (
+          {contactOptions.length > 0 && (
             <div className="flex flex-col gap-1.5">
               <Label>Contact Name</Label>
-              <Select value={contactId || "__none__"} onValueChange={(v) => setContactId(v === "__none__" ? "" : v)}>
-                <SelectTrigger><SelectValue placeholder="Select contact…" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">None</SelectItem>
-                  {contacts.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {[c.first_name, c.last_name].filter(Boolean).join(" ")}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={contactOptions}
+                value={contactId}
+                onValueChange={setContactId}
+                placeholder="Select contact…"
+                searchPlaceholder="Type to search contacts…"
+              />
             </div>
           )}
 
@@ -538,13 +565,17 @@ function EditCardDialog({
             size="sm"
             className="gap-1.5"
             onClick={handleDelete}
+            disabled={submitting}
           >
             <Trash2 className="h-3.5 w-3.5" />
             {confirmDelete ? "Confirm Delete" : "Delete Deal"}
           </Button>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button onClick={handleSave}>Save</Button>
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>Cancel</Button>
+            <Button onClick={handleSave} disabled={submitting}>
+              {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save
+            </Button>
           </div>
         </DialogFooter>
       </DialogContent>

@@ -49,7 +49,7 @@ export default function SalesPipelinePage() {
     );
   }
 
-  function handleCreate(data: {
+  async function handleCreate(data: {
     title: string;
     stage: string;
     company_id?: string;
@@ -59,8 +59,8 @@ export default function SalesPipelinePage() {
     description?: string;
   }) {
     const stageCards = cards.filter((c) => c.stage === data.stage);
-    createDeal.mutate(
-      {
+    try {
+      await createDeal.mutateAsync({
         title: data.title,
         stage: data.stage as import("@/types").SalesStage,
         stage_order: stageCards.length,
@@ -69,15 +69,15 @@ export default function SalesPipelinePage() {
         value: data.value,
         expected_close_date: data.expected_close_date,
         description: data.description,
-      },
-      {
-        onSuccess: () => toast.success("Deal created"),
-        onError: () => toast.error("Failed to create deal"),
-      }
-    );
+      });
+      toast.success("Deal created");
+    } catch {
+      toast.error("Failed to create deal");
+      throw new Error("create failed");
+    }
   }
 
-  function handleUpdate(id: string, data: {
+  async function handleUpdate(id: string, data: {
     title: string;
     stage: string;
     company_id?: string;
@@ -86,8 +86,8 @@ export default function SalesPipelinePage() {
     expected_close_date?: string;
     description?: string;
   }) {
-    updateDeal.mutate(
-      {
+    try {
+      await updateDeal.mutateAsync({
         id,
         title: data.title,
         stage: data.stage as import("@/types").SalesStage,
@@ -96,19 +96,22 @@ export default function SalesPipelinePage() {
         value: data.value ?? null,
         expected_close_date: data.expected_close_date ?? null,
         description: data.description ?? null,
-      },
-      {
-        onSuccess: () => toast.success("Deal updated"),
-        onError: () => toast.error("Failed to update deal"),
-      }
-    );
+      });
+      toast.success("Deal updated");
+    } catch {
+      toast.error("Failed to update deal");
+      throw new Error("update failed");
+    }
   }
 
-  function handleDelete(id: string) {
-    deleteDeal.mutate(id, {
-      onSuccess: () => toast.success("Deal deleted"),
-      onError: () => toast.error("Failed to delete deal"),
-    });
+  async function handleDelete(id: string) {
+    try {
+      await deleteDeal.mutateAsync(id);
+      toast.success("Deal deleted");
+    } catch {
+      toast.error("Failed to delete deal");
+      throw new Error("delete failed");
+    }
   }
 
   if (isLoading) {
