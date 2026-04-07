@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,9 +9,10 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { useAgentConfig, useUpdateAgentConfig } from "@/hooks/useAgent";
 import { useSyncStatus, useManualSync } from "@/hooks/useSyncStatus";
+import { useChangeLog } from "@/hooks/useChangeLog";
 import { toast } from "sonner";
-import { Bot, Zap, RefreshCcw, Bell, AlertCircle, CheckCircle2, Clock, Loader2 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { Bot, Zap, RefreshCcw, Bell, AlertCircle, CheckCircle2, Clock, Loader2, History } from "lucide-react";
+import { formatDistanceToNow, parseISO } from "date-fns";
 
 // ─── Agent config section ─────────────────────────────────────────────────────
 
@@ -367,6 +369,111 @@ function IntegrationsSection() {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+// ─── Change log section ──────────────────────────────────────────────────────
+
+const TABLE_LABELS: Record<string, string> = {
+  contacts: "Contact",
+  companies: "Company",
+  sales_deals: "Deal",
+  delivery_engagements: "Engagement",
+  invoices: "Invoice",
+};
+
+const ACTION_COLORS: Record<string, string> = {
+  insert: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  update: "bg-blue-100 text-blue-700 border-blue-200",
+  delete: "bg-rose-100 text-rose-700 border-rose-200",
+};
+
+function ChangeLogSection() {
+  const navigate = useNavigate();
+  const [filter, setFilter] = useState<string>("all");
+  const { data: entries = [], isLoading } = useChangeLog({
+    tableName: filter === "all" ? undefined : filter,
+    limit: 100,
+  });
+
+  function navigateToRecord(tableName: string, recordId: string) {
+    switch (tableName) {
+      case "contacts": navigate(`/contacts/${recordId}`); break;
+      case "companies": navigate(`/companies/${recordId}`); break;
+      case "sales_deals": navigate("/sales-pipeline"); break;
+      case "invoices": navigate(`/invoices/${recordId}`); break;
+      default: break;
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Filter tabs */}
+      <div className="flex gap-1 flex-wrap">
+        {[
+          { key: "all", label: "All" },
+          { key: "contacts", label: "Contacts" },
+          { key: "companies", label: "Companies" },
+          { key: "sales_deals", label: "Deals" },
+          { key: "invoices", label: "Invoices" },
+        ].map((t) => (
+          <button
+            key={t.key}
+            className={`text-xs px-2.5 py-1 rounded-md transition-colors ${
+              filter === t.key
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+            onClick={() => setFilter(t.key)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
+          Loading change history…
+        </div>
+      ) : entries.length === 0 ? (
+        <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
+          No changes recorded yet. Changes will appear here once the migration is applied.
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2 max-h-[500px] overflow-y-auto">
+          {entries.map((entry) => (
+            <Card key={entry.id} className="border shadow-none">
+              <CardContent className="p-3 flex items-start gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge variant="outline" className={`text-[10px] ${ACTION_COLORS[entry.action] ?? ""}`}>
+                      {entry.action}
+                    </Badge>
+                    <Badge variant="secondary" className="text-[10px]">
+                      {TABLE_LABELS[entry.table_name] ?? entry.table_name}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {formatDistanceToNow(parseISO(entry.created_at), { addSuffix: true })}
+                    </span>
+                  </div>
+                  {entry.summary && (
+                    <p className="text-sm text-muted-foreground mt-1 truncate">{entry.summary}</p>
+                  )}
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-xs shrink-0 h-7"
+                  onClick={() => navigateToRecord(entry.table_name, entry.record_id)}
+                >
+                  View
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   return (
     <div className="flex flex-col gap-8 p-6 max-w-3xl">
@@ -390,6 +497,19 @@ export default function SettingsPage() {
       <section>
         <h2 className="text-lg font-medium mb-4">Integrations</h2>
         <IntegrationsSection />
+      </section>
+
+      <Separator />
+
+      <section>
+        <div className="flex items-center gap-2 mb-4">
+          <History className="h-5 w-5 text-primary" />
+          <h2 className="text-lg font-medium">Change History</h2>
+        </div>
+        <p className="text-sm text-muted-foreground mb-4">
+          Track changes to contacts, companies, deals, and invoices. History is retained for review.
+        </p>
+        <ChangeLogSection />
       </section>
     </div>
   );

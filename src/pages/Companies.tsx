@@ -14,7 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useCompanies, useCreateCompany } from "@/hooks/useCompanies";
+import { useCompanies, useCreateCompany, useDeleteCompany } from "@/hooks/useCompanies";
 import type { Company } from "@/types";
 import { toast } from "sonner";
 
@@ -254,6 +254,7 @@ export default function CompaniesPage() {
   const { data: companies = [], isLoading } = useCompanies();
   const columns = useMemo(() => buildColumns(navigate), [navigate]);
   const [createOpen, setCreateOpen] = useState(false);
+  const deleteCompany = useDeleteCompany();
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -281,6 +282,11 @@ export default function CompaniesPage() {
           exportName="companies"
           toExportRow={toExportRow}
           searchPlaceholder="Search companies…"
+          onBulkDelete={(ids) => {
+            Promise.all(ids.map((id) => deleteCompany.mutateAsync(id)))
+              .then(() => toast.success(`${ids.length} company(ies) deleted`))
+              .catch(() => toast.error("Failed to delete some companies"));
+          }}
         />
       )}
 

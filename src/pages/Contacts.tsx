@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useContacts, useCreateContact } from "@/hooks/useContacts";
+import { useContacts, useCreateContact, useDeleteContact } from "@/hooks/useContacts";
 import { useCompanies } from "@/hooks/useCompanies";
 import type { Contact, ContactCategory } from "@/types";
 import { INTERACTION_TYPE_LABELS, CATEGORY_LABELS } from "@/types";
@@ -395,6 +395,7 @@ export default function ContactsPage() {
   const { data: contacts = [], isLoading } = useContacts();
   const columns = useMemo(() => buildColumns(navigate), [navigate]);
   const [createOpen, setCreateOpen] = useState(false);
+  const deleteContact = useDeleteContact();
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -422,6 +423,11 @@ export default function ContactsPage() {
           exportName="contacts"
           toExportRow={toExportRow}
           searchPlaceholder="Search contacts…"
+          onBulkDelete={(ids) => {
+            Promise.all(ids.map((id) => deleteContact.mutateAsync(id)))
+              .then(() => toast.success(`${ids.length} contact(s) deleted`))
+              .catch(() => toast.error("Failed to delete some contacts"));
+          }}
         />
       )}
 

@@ -10,6 +10,7 @@ import {
   type SortingState,
   type ColumnFiltersState,
   type FilterFn,
+  type RowSelectionState,
 } from "@tanstack/react-table";
 import {
   Table,
@@ -41,6 +42,7 @@ import {
   Download,
   Filter,
   X,
+  Trash2,
 } from "lucide-react";
 
 // ─── Filter meta types ────────────────────────────────────────────────────────
@@ -177,6 +179,10 @@ interface DataTableProps<T> {
   searchPlaceholder?: string;
   /** Extra JSX rendered to the right of the search bar */
   actions?: React.ReactNode;
+  /** Enable row selection with bulk delete. Receives array of selected row IDs. */
+  onBulkDelete?: (ids: string[]) => void;
+  /** Accessor to get the row ID for bulk operations. Defaults to (row as any).id */
+  getRowId?: (row: T) => string;
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -188,12 +194,18 @@ export function DataTable<T>({
   toExportRow,
   searchPlaceholder = "Search…",
   actions,
+  onBulkDelete,
+  getRowId,
 }: DataTableProps<T>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 25 });
   const [showColumnFilters, setShowColumnFilters] = useState(false);
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+
+  const resolveRowId = getRowId ?? ((row: T) => (row as Record<string, unknown>).id as string);
 
   // Build a map of columnId → filterMeta for easy lookup
   const filterMetaMap = useMemo(() => {
@@ -207,17 +219,47 @@ export function DataTable<T>({
     return map;
   }, [columns]);
 
+  // Prepend checkbox column if bulk delete is enabled
+  const allColumns = useMemo(() => {
+    if (!onBulkDelete) return columns as ColumnDef<T>[];
+    const selectCol: ColumnDef<T> = {
+      id: "_select",
+      header: ({ table: t }) => (
+        <input
+          type="checkbox"
+          className="rounded border-border"
+          checked={t.getIsAllPageRowsSelected()}
+          onChange={t.getToggleAllPageRowsSelectedHandler()}
+        />
+      ),
+      cell: ({ row }) => (
+        <input
+          type="checkbox"
+          className="rounded border-border"
+          checked={row.getIsSelected()}
+          onChange={row.getToggleSelectedHandler()}
+          onClick={(e) => e.stopPropagation()}
+        />
+      ),
+      enableSorting: false,
+      enableColumnFilter: false,
+    };
+    return [selectCol, ...(columns as ColumnDef<T>[])];
+  }, [columns, onBulkDelete]);
+
   const table = useReactTable({
     data,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    columns: columns as ColumnDef<any>[],
+    columns: allColumns as ColumnDef<unknown>[],
     filterFns: { fuzzy: fuzzyFilter },
-    globalFilterFn: fuzzyFilter as FilterFn<any>,
-    state: { sorting, columnFilters, globalFilter, pagination },
+    globalFilterFn: fuzzyFilter as FilterFn<unknown>,
+    state: { sorting, columnFilters, globalFilter, pagination, rowSelection },
+    enableRowSelection: !!onBulkDelete,
+    onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
     onPaginationChange: setPagination,
+    getRowId: (row) => resolveRowId(row as T),
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -313,6 +355,50 @@ export function DataTable<T>({
           </PopoverContent>
         </Popover>
       </div>
+
+      {/* ── Bulk action bar ── */}
+      {onBulkDelete && Object.keys(rowSelection).length > 0 && (
+        <div className="flex items-center gap-3 rounded-md border border-border bg-muted/40 p-2">
+          <span className="text-sm text-muted-foreground">
+            {Object.keys(rowSelection).length} selected
+          </span>
+          <Button
+            variant="destructive"
+            size="sm"
+            className="gap-1.5 h-7 text-xs"
+            onClick={() => {
+              if (!confirmBulkDelete) {
+                setConfirmBulkDelete(true);
+                return;
+              }
+              onBulkDelete(Object.keys(rowSelection));
+              setRowSelection({});
+              setConfirmBulkDelete(false);
+            }}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            {confirmBulkDelete ? "Confirm Delete" : "Delete Selected"}
+          </Button>
+          {confirmBulkDelete && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => setConfirmBulkDelete(false)}
+            >
+              Cancel
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs text-muted-foreground"
+            onClick={() => { setRowSelection({}); setConfirmBulkDelete(false); }}
+          >
+            Clear selection
+          </Button>
+        </div>
+      )}
 
       {/* ── Column filter row ── */}
       {showColumnFilters && (
