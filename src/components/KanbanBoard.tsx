@@ -13,7 +13,7 @@ import { Plus, GripVertical, DollarSign, Building2, User, CalendarIcon } from "l
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
+
 import {
   Dialog,
   DialogContent,
@@ -179,7 +179,7 @@ function KanbanColumn({
   const totalValue = cards.reduce((sum, c) => sum + (c.value ?? c.contract_value ?? 0), 0);
 
   return (
-    <div className="flex flex-col w-64 shrink-0">
+    <div className="flex flex-col w-64 shrink-0 max-h-[calc(100vh-200px)]">
       {/* Column header */}
       <div className="flex items-center justify-between mb-2 px-1">
         <div className="flex items-center gap-2">
@@ -211,7 +211,7 @@ function KanbanColumn({
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
-            className={`flex-1 min-h-[120px] rounded-lg p-2 transition-colors ${
+            className={`flex-1 min-h-[120px] rounded-lg p-2 transition-colors overflow-y-auto ${
               snapshot.isDraggingOver ? "bg-primary/5 border border-primary/20" : "bg-muted/30"
             }`}
           >
@@ -419,8 +419,8 @@ export function KanbanBoard({
   return (
     <>
       <DragDropContext onDragEnd={handleDragEnd}>
-        <ScrollArea className="w-full">
-          <div className="flex gap-4 pb-4 overflow-x-auto min-h-[500px]">
+        <div className="w-full overflow-x-auto">
+          <div className="flex gap-4 pb-4 min-h-[500px]" style={{ minWidth: `${stages.length * 272}px` }}>
             {stages.map((stage) => (
               <KanbanColumn
                 key={stage.id}
@@ -431,7 +431,7 @@ export function KanbanBoard({
               />
             ))}
           </div>
-        </ScrollArea>
+        </div>
       </DragDropContext>
 
       <AddCardDialog
