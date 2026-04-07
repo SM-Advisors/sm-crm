@@ -97,8 +97,8 @@ export function TopBar() {
           type: "contact",
           id: c.id,
           label: name,
-          sublabel: (c as Record<string, unknown>).company
-            ? ((c as Record<string, unknown>).company as { name: string }).name
+          sublabel: (c as unknown as Record<string, unknown>).company
+            ? ((c as unknown as Record<string, unknown>).company as { name: string }).name
             : c.title ?? undefined,
           href: `/contacts/${c.id}`,
         });
