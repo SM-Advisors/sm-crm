@@ -231,6 +231,39 @@ export type Database = {
         }
         Relationships: []
       }
+      change_log: {
+        Row: {
+          action: string
+          changed_by: string | null
+          changes: Json | null
+          created_at: string
+          id: string
+          record_id: string
+          summary: string | null
+          table_name: string
+        }
+        Insert: {
+          action: string
+          changed_by?: string | null
+          changes?: Json | null
+          created_at?: string
+          id?: string
+          record_id: string
+          summary?: string | null
+          table_name: string
+        }
+        Update: {
+          action?: string
+          changed_by?: string | null
+          changes?: Json | null
+          created_at?: string
+          id?: string
+          record_id?: string
+          summary?: string | null
+          table_name?: string
+        }
+        Relationships: []
+      }
       companies: {
         Row: {
           address_line1: string | null
@@ -1258,6 +1291,7 @@ export type Database = {
         | "text"
         | "note"
         | "agent_outreach"
+        | "conference"
       invoice_status:
         | "draft"
         | "sent"
@@ -1432,6 +1466,7 @@ export const Constants = {
         "text",
         "note",
         "agent_outreach",
+        "conference",
       ],
       invoice_status: [
         "draft",
