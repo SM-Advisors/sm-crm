@@ -33,7 +33,8 @@ export type InteractionType =
   | "linkedin_message"
   | "text"
   | "note"
-  | "agent_outreach";
+  | "agent_outreach"
+  | "conference";
 
 export type InvoiceStatus =
   | "draft"
@@ -408,6 +409,7 @@ export const INTERACTION_TYPE_LABELS: Record<InteractionType, string> = {
   text: "Text",
   note: "Note",
   agent_outreach: "Agent Outreach",
+  conference: "Conference/Event",
 };
 
 export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {

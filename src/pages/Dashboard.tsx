@@ -223,11 +223,11 @@ export default function Dashboard() {
 
   const metrics = useMemo(() => {
     const totalPipeline = deals
-      .filter((d) => !["won", "lost"].includes(d.stage))
+      .filter((d) => !["closed_won", "closed_lost", "service_complete"].includes(d.stage))
       .reduce((s, d) => s + (d.value ?? 0), 0);
 
     const weightedPipeline = deals
-      .filter((d) => !["won", "lost"].includes(d.stage))
+      .filter((d) => !["closed_won", "closed_lost", "service_complete"].includes(d.stage))
       .reduce((s, d) => s + ((d.value ?? 0) * ((d.probability ?? 50) / 100)), 0);
 
     const outstanding = invoices
@@ -265,7 +265,7 @@ export default function Dashboard() {
       },
       {
         label: "Active Deals",
-        value: String(deals.filter((d) => !["won", "lost"].includes(d.stage)).length),
+        value: String(deals.filter((d) => !["closed_won", "closed_lost", "service_complete"].includes(d.stage)).length),
         icon: TrendingUp,
         onClick: () => navigate("/sales-pipeline"),
       },

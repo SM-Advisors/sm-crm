@@ -15,6 +15,7 @@ import {
   Users,
   Folder,
   Mail,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -38,7 +39,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useCompany, useUpdateCompany } from "@/hooks/useCompanies";
+import { useCompany, useUpdateCompany, useDeleteCompany } from "@/hooks/useCompanies";
 import { useLogInteraction } from "@/hooks/useInteractions";
 import { toast } from "sonner";
 import type { Company, InteractionType } from "@/types";
@@ -179,7 +180,15 @@ function LogInteractionDialog({
   const [type, setType] = useState<InteractionType>("note");
   const [subject, setSubject] = useState("");
   const [summary, setSummary] = useState("");
-  const [occurredAt, setOccurredAt] = useState(new Date().toISOString().slice(0, 16));
+  const [occurredAt, setOccurredAt] = useState(() => {
+    const now = new Date();
+    const central = new Date(now.toLocaleString("en-US", { timeZone: "America/Chicago" }));
+    return central.getFullYear() + "-" +
+      String(central.getMonth() + 1).padStart(2, "0") + "-" +
+      String(central.getDate()).padStart(2, "0") + "T" +
+      String(central.getHours()).padStart(2, "0") + ":" +
+      String(central.getMinutes()).padStart(2, "0");
+  });
   const logInteraction = useLogInteraction();
 
   const allTypes: InteractionType[] = ["email_sent", "call", "meeting", "text", "linkedin_message", "note"];
@@ -449,7 +458,9 @@ export default function CompanyDetailPage() {
   const navigate = useNavigate();
   const [editOpen, setEditOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const { data: company, isLoading, isError } = useCompany(id!);
+  const deleteCompany = useDeleteCompany();
 
   if (isLoading) {
     return (
@@ -488,11 +499,38 @@ export default function CompanyDetailPage() {
 
           <div className="flex items-start justify-between gap-2">
             <h1 className="text-lg font-semibold leading-tight">{company.name}</h1>
-            <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0"
-              onClick={() => setEditOpen(true)}>
-              <Pencil className="h-3.5 w-3.5" />
-            </Button>
+            <div className="flex gap-1 shrink-0">
+              <Button size="icon" variant="ghost" className="h-8 w-8"
+                onClick={() => setEditOpen(true)}>
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 text-destructive hover:text-destructive"
+                onClick={() => {
+                  if (!confirmDelete) {
+                    setConfirmDelete(true);
+                    return;
+                  }
+                  deleteCompany.mutate(id!, {
+                    onSuccess: () => {
+                      toast.success("Company deleted");
+                      navigate("/companies");
+                    },
+                    onError: () => toast.error("Failed to delete company"),
+                  });
+                }}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
+          {confirmDelete && (
+            <div className="mt-2 p-2 bg-destructive/10 border border-destructive/20 rounded text-xs text-destructive">
+              Click the trash icon again to confirm deletion. <button className="underline ml-1" onClick={() => setConfirmDelete(false)}>Cancel</button>
+            </div>
+          )}
 
           {company.industry && (
             <p className="text-sm text-muted-foreground mt-0.5">{company.industry}</p>

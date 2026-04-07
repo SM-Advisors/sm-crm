@@ -15,6 +15,7 @@ import {
   Activity,
   Briefcase,
   Folder,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -38,7 +39,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useContact, useUpdateContact } from "@/hooks/useContacts";
+import { useContact, useUpdateContact, useDeleteContact } from "@/hooks/useContacts";
 import { useLogInteraction } from "@/hooks/useInteractions";
 import { toast } from "sonner";
 import type { ContactWithDetails, InteractionType } from "@/types";
@@ -205,12 +206,18 @@ function ActivitiesTab({ contact }: { contact: ContactWithDetails }) {
   const [type, setType] = useState<InteractionType>("call");
   const [subject, setSubject] = useState("");
   const [summary, setSummary] = useState("");
-  const [occurredAt, setOccurredAt] = useState(
-    new Date().toISOString().slice(0, 16)
-  );
+  const [occurredAt, setOccurredAt] = useState(() => {
+    const now = new Date();
+    const central = new Date(now.toLocaleString("en-US", { timeZone: "America/Chicago" }));
+    return central.getFullYear() + "-" +
+      String(central.getMonth() + 1).padStart(2, "0") + "-" +
+      String(central.getDate()).padStart(2, "0") + "T" +
+      String(central.getHours()).padStart(2, "0") + ":" +
+      String(central.getMinutes()).padStart(2, "0");
+  });
   const logInteraction = useLogInteraction();
 
-  const activityTypes: InteractionType[] = ["call", "meeting", "linkedin_message", "text"];
+  const activityTypes: InteractionType[] = ["call", "meeting", "conference", "linkedin_message", "text"];
   const activities = (contact.interactions ?? []).filter((i) =>
     activityTypes.includes(i.type as InteractionType)
   );
@@ -604,7 +611,9 @@ export default function ContactDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [editOpen, setEditOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const { data: contact, isLoading, isError } = useContact(id!);
+  const deleteContact = useDeleteContact();
 
   if (isLoading) {
     return (
@@ -650,15 +659,42 @@ export default function ContactDetailPage() {
                 <p className="text-sm text-muted-foreground mt-0.5">{contact.title}</p>
               )}
             </div>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-8 w-8 shrink-0"
-              onClick={() => setEditOpen(true)}
-            >
-              <Pencil className="h-3.5 w-3.5" />
-            </Button>
+            <div className="flex gap-1 shrink-0">
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8"
+                onClick={() => setEditOpen(true)}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 text-destructive hover:text-destructive"
+                onClick={() => {
+                  if (!confirmDelete) {
+                    setConfirmDelete(true);
+                    return;
+                  }
+                  deleteContact.mutate(id!, {
+                    onSuccess: () => {
+                      toast.success("Contact deleted");
+                      navigate("/contacts");
+                    },
+                    onError: () => toast.error("Failed to delete contact"),
+                  });
+                }}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
+          {confirmDelete && (
+            <div className="mt-2 p-2 bg-destructive/10 border border-destructive/20 rounded text-xs text-destructive">
+              Click the trash icon again to confirm deletion. <button className="underline ml-1" onClick={() => setConfirmDelete(false)}>Cancel</button>
+            </div>
+          )}
 
           {/* Categories */}
           {categories.length > 0 && (

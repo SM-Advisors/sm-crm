@@ -9,7 +9,7 @@ import {
   Draggable,
   type DropResult,
 } from "@hello-pangea/dnd";
-import { Plus, GripVertical, DollarSign, Building2, User, CalendarIcon } from "lucide-react";
+import { Plus, GripVertical, DollarSign, Building2, User, CalendarIcon, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -57,11 +57,23 @@ export interface KanbanStage {
   color?: string;       // tailwind bg class e.g. "bg-blue-500"
 }
 
+interface DealFormData {
+  title: string;
+  stage: string;
+  company_id?: string;
+  contact_id?: string;
+  value?: number;
+  expected_close_date?: string;
+  description?: string;
+}
+
 interface KanbanBoardProps {
   cards: KanbanCard[];
   stages: KanbanStage[];
   onCardMove: (cardId: string, newStage: string, newOrder: number) => void;
-  onCreate?: (data: { title: string; stage: string; company_id?: string; contact_id?: string; value?: number; expected_close_date?: string; description?: string }) => void;
+  onCreate?: (data: DealFormData) => void;
+  onUpdate?: (id: string, data: DealFormData) => void;
+  onDelete?: (id: string) => void;
   onCardClick?: (card: KanbanCard) => void;
   companies?: { id: string; name: string }[];
   contacts?: { id: string; first_name?: string; last_name?: string }[];
@@ -74,10 +86,12 @@ function KanbanCardItem({
   card,
   index,
   onClick,
+  onEditClick,
 }: {
   card: KanbanCard;
   index: number;
   onClick?: (card: KanbanCard) => void;
+  onEditClick?: (card: KanbanCard) => void;
 }) {
   const navigate = useNavigate();
   const displayValue = card.value ?? card.contract_value;
@@ -91,11 +105,11 @@ function KanbanCardItem({
           className={`mb-2 ${snapshot.isDragging ? "opacity-80" : ""}`}
         >
           <Card
-            className="cursor-pointer hover:shadow-md transition-shadow select-none"
+            className="cursor-pointer hover:shadow-md transition-shadow select-none group"
             onClick={() => onClick?.(card)}
           >
             <CardContent className="p-3">
-              {/* Drag handle + title */}
+              {/* Drag handle + title + edit */}
               <div className="flex items-start gap-1.5">
                 <div
                   {...provided.dragHandleProps}
@@ -104,6 +118,14 @@ function KanbanCardItem({
                   <GripVertical className="h-4 w-4" />
                 </div>
                 <p className="text-sm font-medium leading-tight flex-1">{card.title}</p>
+                {onEditClick && (
+                  <button
+                    className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground shrink-0 transition-opacity"
+                    onClick={(e) => { e.stopPropagation(); onEditClick(card); }}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
 
               {/* Meta row */}
@@ -169,11 +191,13 @@ function KanbanColumn({
   stage,
   cards,
   onCardClick,
+  onEditClick,
   onAddClick,
 }: {
   stage: KanbanStage;
   cards: KanbanCard[];
   onCardClick?: (card: KanbanCard) => void;
+  onEditClick?: (card: KanbanCard) => void;
   onAddClick: (stageId: string) => void;
 }) {
   const totalValue = cards.reduce((sum, c) => sum + (c.value ?? c.contract_value ?? 0), 0);
@@ -221,6 +245,7 @@ function KanbanColumn({
                 card={card}
                 index={index}
                 onClick={onCardClick}
+                onEditClick={onEditClick}
               />
             ))}
             {provided.placeholder}
@@ -382,6 +407,151 @@ function AddCardDialog({
   );
 }
 
+// ─── Edit card dialog ────────────────────────────────────────────────────────
+
+function EditCardDialog({
+  card,
+  stages,
+  companies,
+  contacts,
+  onOpenChange,
+  onUpdate,
+  onDelete,
+}: {
+  card: KanbanCard | null;
+  stages: KanbanStage[];
+  companies?: { id: string; name: string }[];
+  contacts?: { id: string; first_name?: string; last_name?: string }[];
+  onOpenChange: (v: boolean) => void;
+  onUpdate?: KanbanBoardProps["onUpdate"];
+  onDelete?: KanbanBoardProps["onDelete"];
+}) {
+  const [title, setTitle] = useState(card?.title ?? "");
+  const [stage, setStage] = useState(card?.stage ?? "");
+  const [companyId, setCompanyId] = useState(card?.company?.id ?? "");
+  const [contactId, setContactId] = useState(card?.contact?.id ?? "");
+  const [value, setValue] = useState(card?.value?.toString() ?? "");
+  const [closingDate, setClosingDate] = useState(card?.close_date ?? "");
+  const [description, setDescription] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  if (!card) return null;
+
+  function handleSave() {
+    if (!title.trim()) { toast.error("Deal name is required"); return; }
+    onUpdate?.(card!.id, {
+      title: title.trim(),
+      stage,
+      company_id: companyId || undefined,
+      contact_id: contactId || undefined,
+      value: value ? parseFloat(value) : undefined,
+      expected_close_date: closingDate || undefined,
+      description: description.trim() || undefined,
+    });
+    onOpenChange(false);
+  }
+
+  function handleDelete() {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+    onDelete?.(card!.id);
+    onOpenChange(false);
+  }
+
+  return (
+    <Dialog open={!!card} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[480px]">
+        <DialogHeader><DialogTitle>Edit Deal</DialogTitle></DialogHeader>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <Label>Deal Name *</Label>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
+          </div>
+
+          {companies && companies.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <Label>Company Name</Label>
+              <Select value={companyId || "__none__"} onValueChange={(v) => setCompanyId(v === "__none__" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="Select company…" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">None</SelectItem>
+                  {companies.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {contacts && contacts.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <Label>Contact Name</Label>
+              <Select value={contactId || "__none__"} onValueChange={(v) => setContactId(v === "__none__" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="Select contact…" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">None</SelectItem>
+                  {contacts.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {[c.first_name, c.last_name].filter(Boolean).join(" ")}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          <div className="flex flex-col gap-1.5">
+            <Label>Stage</Label>
+            <Select value={stage} onValueChange={setStage}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {stages.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label>Amount</Label>
+            <div className="relative">
+              <Input type="number" placeholder="0" value={value} onChange={(e) => setValue(e.target.value)} className="pr-8" />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label>Closing Date</Label>
+            <Input type="date" value={closingDate} onChange={(e) => setClosingDate(e.target.value)} />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label>Description</Label>
+            <Textarea placeholder="A few words about this deal" value={description} onChange={(e) => setDescription(e.target.value)} className="min-h-[80px] resize-y" />
+          </div>
+        </div>
+        <DialogFooter className="flex !justify-between">
+          <Button
+            variant="destructive"
+            size="sm"
+            className="gap-1.5"
+            onClick={handleDelete}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            {confirmDelete ? "Confirm Delete" : "Delete Deal"}
+          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button onClick={handleSave}>Save</Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 export function KanbanBoard({
@@ -389,11 +559,14 @@ export function KanbanBoard({
   stages,
   onCardMove,
   onCreate,
+  onUpdate,
+  onDelete,
   onCardClick,
   companies,
   contacts,
 }: KanbanBoardProps) {
   const [addDialogStage, setAddDialogStage] = useState<string | null>(null);
+  const [editingCard, setEditingCard] = useState<KanbanCard | null>(null);
 
   // Group cards by stage, sorted by stage_order
   const byStage: Record<string, KanbanCard[]> = {};
@@ -427,6 +600,7 @@ export function KanbanBoard({
                 stage={stage}
                 cards={byStage[stage.id] ?? []}
                 onCardClick={onCardClick}
+                onEditClick={(onUpdate || onDelete) ? (card) => setEditingCard(card) : undefined}
                 onAddClick={(stageId) => setAddDialogStage(stageId)}
               />
             ))}
@@ -443,6 +617,18 @@ export function KanbanBoard({
         onOpenChange={(v) => { if (!v) setAddDialogStage(null); }}
         onCreate={onCreate}
       />
+
+      {editingCard && (
+        <EditCardDialog
+          card={editingCard}
+          stages={stages}
+          companies={companies}
+          contacts={contacts}
+          onOpenChange={(v) => { if (!v) setEditingCard(null); }}
+          onUpdate={onUpdate}
+          onDelete={onDelete}
+        />
+      )}
     </>
   );
 }
