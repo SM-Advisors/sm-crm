@@ -1,0 +1,5 @@
+
+-- Import summary:
+--   Companies: 268
+--   Contacts:  305
+--   Deals:     51
