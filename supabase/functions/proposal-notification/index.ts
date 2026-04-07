@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 const JAMIE_EMAIL = "jamiek@smaiadvisors.com";
-const FROM_EMAIL = "notifications@smaiadvisors.com";
+const FROM_EMAIL = "notifications@mail.smaiadvisors.com";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
