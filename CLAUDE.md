@@ -12,7 +12,7 @@ The owner is Cory Kronheim, founder of SM Advisors. He is a CPA and AI enablemen
 
 - **Frontend**: React 18, TypeScript, Vite, Tailwind CSS
 - **Router**: React Router v6
-- **Database**: Supabase (PostgreSQL) — already connected via Lovable
+- **Database**: Supabase (PostgreSQL) — managed by Lovable Cloud. Unless stated otherwise, all web apps are hosted in Lovable and Lovable manages Supabase through Lovable Cloud. Do not assume direct Supabase dashboard access or service_role key access — work through Lovable's interface. Lovable does not expose the Supabase project URL or API keys (anon or service_role). Any external integration needing Supabase access (e.g., n8n) must use an alternative approach such as Supabase Edge Functions as webhook endpoints.
 - **Auth**: Supabase Auth (email/password)
 - **Drag-and-drop**: @hello-pangea/dnd (Kanban boards)
 - **Charts**: Recharts (reporting dashboards)
