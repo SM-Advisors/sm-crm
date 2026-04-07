@@ -1267,13 +1267,13 @@ export type Database = {
         | "overdue"
         | "voided"
       sales_stage:
-        | "lead"
-        | "qualified"
-        | "discovery"
+        | "qualification"
+        | "needs_analysis"
         | "proposal"
-        | "negotiation"
+        | "cold_deal"
         | "closed_won"
         | "closed_lost"
+        | "service_complete"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1443,13 +1443,13 @@ export const Constants = {
         "voided",
       ],
       sales_stage: [
-        "lead",
-        "qualified",
-        "discovery",
+        "qualification",
+        "needs_analysis",
         "proposal",
-        "negotiation",
+        "cold_deal",
         "closed_won",
         "closed_lost",
+        "service_complete",
       ],
     },
   },

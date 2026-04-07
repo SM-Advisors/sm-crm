@@ -38,24 +38,24 @@ COMPANY_TAG_TO_CATEGORY = {
 
 # Bigin pipeline stage -> our sales_stage enum
 BIGIN_STAGE_MAP = {
-    'Qualification': 'qualified',
-    'Needs Analysis': 'discovery',
+    'Qualification': 'qualification',
+    'Needs Analysis': 'needs_analysis',
     'Proposal/Price Quote': 'proposal',
-    'Cold Deal': 'lead',
+    'Cold Deal': 'cold_deal',
     'Closed Won': 'closed_won',
     'Closed Lost': 'closed_lost',
-    'Service Complete': 'closed_won',  # delivered = won
+    'Service Complete': 'service_complete',
 }
 
 # Stage order for sorting in Kanban
 STAGE_ORDER = {
-    'lead': 0,
-    'qualified': 1,
-    'discovery': 2,
-    'proposal': 3,
-    'negotiation': 4,
-    'closed_won': 5,
-    'closed_lost': 6,
+    'qualification': 0,
+    'needs_analysis': 1,
+    'proposal': 2,
+    'cold_deal': 3,
+    'closed_won': 4,
+    'closed_lost': 5,
+    'service_complete': 6,
 }
 
 
@@ -306,9 +306,10 @@ def import_pipelines(rows):
 
         # Set probability based on stage
         probability_map = {
-            'lead': 10, 'qualified': 25, 'discovery': 40,
-            'proposal': 60, 'negotiation': 80,
+            'qualification': 25, 'needs_analysis': 40,
+            'proposal': 60, 'cold_deal': 10,
             'closed_won': 100, 'closed_lost': 0,
+            'service_complete': 100,
         }
         probability = probability_map.get(stage, 0)
 

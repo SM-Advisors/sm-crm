@@ -9,7 +9,7 @@ import {
   Draggable,
   type DropResult,
 } from "@hello-pangea/dnd";
-import { Plus, GripVertical, DollarSign, Building2, User } from "lucide-react";
+import { Plus, GripVertical, DollarSign, Building2, User, CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -60,7 +61,7 @@ interface KanbanBoardProps {
   cards: KanbanCard[];
   stages: KanbanStage[];
   onCardMove: (cardId: string, newStage: string, newOrder: number) => void;
-  onCreate?: (data: { title: string; stage: string; company_id?: string; contact_id?: string; value?: number }) => void;
+  onCreate?: (data: { title: string; stage: string; company_id?: string; contact_id?: string; value?: number; expected_close_date?: string; description?: string }) => void;
   onCardClick?: (card: KanbanCard) => void;
   companies?: { id: string; name: string }[];
   contacts?: { id: string; first_name?: string; last_name?: string }[];
@@ -254,43 +255,45 @@ function AddCardDialog({
   const [companyId, setCompanyId] = useState("");
   const [contactId, setContactId] = useState("");
   const [value, setValue] = useState("");
+  const [closingDate, setClosingDate] = useState("");
+  const [description, setDescription] = useState("");
 
   function handleCreate() {
-    if (!title.trim()) { toast.error("Title is required"); return; }
+    if (!title.trim()) { toast.error("Deal name is required"); return; }
     onCreate?.({
       title: title.trim(),
       stage,
       company_id: companyId || undefined,
       contact_id: contactId || undefined,
       value: value ? parseFloat(value) : undefined,
+      expected_close_date: closingDate || undefined,
+      description: description.trim() || undefined,
     });
     setTitle(""); setValue(""); setCompanyId(""); setContactId("");
+    setClosingDate(""); setDescription("");
     onOpenChange(false);
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader><DialogTitle>Add Deal / Engagement</DialogTitle></DialogHeader>
-        <div className="flex flex-col gap-3">
+      <DialogContent className="sm:max-w-[480px]">
+        <DialogHeader><DialogTitle>Create Deal</DialogTitle></DialogHeader>
+        <div className="flex flex-col gap-4">
+          {/* Deal Name */}
           <div className="flex flex-col gap-1.5">
-            <Label>Title *</Label>
-            <Input placeholder="Deal name…" value={title} onChange={(e) => setTitle(e.target.value)} />
+            <Label>Deal Name *</Label>
+            <Input
+              placeholder="e.g., Acme Bank - AI Enablement"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              autoFocus
+            />
           </div>
-          <div className="flex flex-col gap-1.5">
-            <Label>Stage</Label>
-            <Select value={stage} onValueChange={setStage}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {stages.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+
+          {/* Company Name */}
           {companies && companies.length > 0 && (
             <div className="flex flex-col gap-1.5">
-              <Label>Company</Label>
+              <Label>Company Name</Label>
               <Select value={companyId || "__none__"} onValueChange={(v) => setCompanyId(v === "__none__" ? "" : v)}>
                 <SelectTrigger><SelectValue placeholder="Select company…" /></SelectTrigger>
                 <SelectContent>
@@ -302,9 +305,11 @@ function AddCardDialog({
               </Select>
             </div>
           )}
+
+          {/* Contact Name */}
           {contacts && contacts.length > 0 && (
             <div className="flex flex-col gap-1.5">
-              <Label>Contact</Label>
+              <Label>Contact Name</Label>
               <Select value={contactId || "__none__"} onValueChange={(v) => setContactId(v === "__none__" ? "" : v)}>
                 <SelectTrigger><SelectValue placeholder="Select contact…" /></SelectTrigger>
                 <SelectContent>
@@ -318,14 +323,59 @@ function AddCardDialog({
               </Select>
             </div>
           )}
+
+          {/* Stage */}
           <div className="flex flex-col gap-1.5">
-            <Label>Value ($)</Label>
-            <Input type="number" placeholder="0" value={value} onChange={(e) => setValue(e.target.value)} />
+            <Label>Stage</Label>
+            <Select value={stage} onValueChange={setStage}>
+              <SelectTrigger><SelectValue placeholder="Choose a stage" /></SelectTrigger>
+              <SelectContent>
+                {stages.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Amount */}
+          <div className="flex flex-col gap-1.5">
+            <Label>Amount</Label>
+            <div className="relative">
+              <Input
+                type="number"
+                placeholder="0"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                className="pr-8"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+            </div>
+          </div>
+
+          {/* Closing Date */}
+          <div className="flex flex-col gap-1.5">
+            <Label>Closing Date</Label>
+            <Input
+              type="date"
+              value={closingDate}
+              onChange={(e) => setClosingDate(e.target.value)}
+            />
+          </div>
+
+          {/* Description */}
+          <div className="flex flex-col gap-1.5">
+            <Label>Description</Label>
+            <Textarea
+              placeholder="A few words about this deal"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="min-h-[80px] resize-y"
+            />
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleCreate}>Create</Button>
+          <Button onClick={handleCreate}>Save</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

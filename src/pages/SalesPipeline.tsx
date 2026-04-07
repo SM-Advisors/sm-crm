@@ -11,13 +11,13 @@ import { SALES_STAGE_LABELS } from "@/types";
 import { toast } from "sonner";
 
 const SALES_STAGES: KanbanStage[] = [
-  { id: "lead",        label: SALES_STAGE_LABELS.lead,        color: "bg-slate-400" },
-  { id: "qualified",   label: SALES_STAGE_LABELS.qualified,   color: "bg-blue-400" },
-  { id: "discovery",   label: SALES_STAGE_LABELS.discovery,   color: "bg-cyan-400" },
-  { id: "proposal",    label: SALES_STAGE_LABELS.proposal,    color: "bg-violet-400" },
-  { id: "negotiation", label: SALES_STAGE_LABELS.negotiation, color: "bg-amber-400" },
-  { id: "closed_won",  label: SALES_STAGE_LABELS.closed_won,  color: "bg-emerald-400" },
-  { id: "closed_lost", label: SALES_STAGE_LABELS.closed_lost, color: "bg-rose-400" },
+  { id: "qualification",    label: SALES_STAGE_LABELS.qualification,    color: "bg-blue-400" },
+  { id: "needs_analysis",   label: SALES_STAGE_LABELS.needs_analysis,   color: "bg-cyan-400" },
+  { id: "proposal",         label: SALES_STAGE_LABELS.proposal,         color: "bg-violet-400" },
+  { id: "cold_deal",        label: SALES_STAGE_LABELS.cold_deal,        color: "bg-slate-400" },
+  { id: "closed_won",       label: SALES_STAGE_LABELS.closed_won,       color: "bg-emerald-400" },
+  { id: "closed_lost",      label: SALES_STAGE_LABELS.closed_lost,      color: "bg-rose-400" },
+  { id: "service_complete",  label: SALES_STAGE_LABELS.service_complete,  color: "bg-teal-400" },
 ];
 
 export default function SalesPipelinePage() {
@@ -53,6 +53,8 @@ export default function SalesPipelinePage() {
     company_id?: string;
     contact_id?: string;
     value?: number;
+    expected_close_date?: string;
+    description?: string;
   }) {
     const stageCards = cards.filter((c) => c.stage === data.stage);
     createDeal.mutate(
@@ -63,6 +65,8 @@ export default function SalesPipelinePage() {
         company_id: data.company_id,
         contact_id: data.contact_id,
         value: data.value,
+        expected_close_date: data.expected_close_date,
+        description: data.description,
       },
       {
         onSuccess: () => toast.success("Deal created"),
