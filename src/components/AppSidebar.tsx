@@ -1,6 +1,7 @@
 import {
   LayoutDashboard, Users, Building2, TrendingUp, Truck,
   FileText, BarChart3, Bot, Settings, PanelLeftClose, PanelLeft,
+  PlusCircle,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -9,6 +10,7 @@ import { useState } from "react";
 
 const navItems = [
   { title: "Dashboard",          url: "/dashboard",          icon: LayoutDashboard },
+  { title: "New Engagement",     url: "/new-engagement",     icon: PlusCircle },
   { title: "Contacts",           url: "/contacts",           icon: Users },
   { title: "Companies",          url: "/companies",          icon: Building2 },
   { title: "Sales Pipeline",     url: "/sales-pipeline",     icon: TrendingUp },
