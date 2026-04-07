@@ -128,10 +128,10 @@ Deno.serve(async (req) => {
 
         const row = {
           contact_id: body.contact_id,
-          company_id: body.company_id ?? null,
+          company_id: body.company_id || null,
           type: body.type,
-          subject: body.subject ?? null,
-          summary: body.summary ?? null,
+          subject: body.subject || null,
+          summary: body.summary || null,
           occurred_at: body.occurred_at,
           source: "gmail",
           external_id: body.external_id,
@@ -156,10 +156,10 @@ Deno.serve(async (req) => {
 
         const rows = interactions.map((i) => ({
           contact_id: i.contact_id,
-          company_id: i.company_id ?? null,
+          company_id: i.company_id || null,
           type: i.type,
-          subject: i.subject ?? null,
-          summary: i.summary ?? null,
+          subject: i.subject || null,
+          summary: i.summary || null,
           occurred_at: i.occurred_at,
           source: "gmail",
           external_id: i.external_id,
