@@ -70,9 +70,9 @@ Deno.serve(async (req) => {
       throw new Error("CLAUDE_API_KEY not configured");
     }
 
-    const extractionPrompt = `You are analyzing a voice transcript from Cory Kunz, founder of SM Advisors, an AI enablement advisory firm. He records voice memos about prospective client engagements.
+    const extractionPrompt = `You are analyzing a voice transcript from Cory Kunz, founder of SM Advisors, an AI enablement advisory firm. He records voice memos and flags deal-related ones by saying "engagement letter" somewhere in the recording. This transcript has already been filtered to only include ones containing that phrase.
 
-Analyze the following transcript and extract deal information. First, determine if this transcript is about a prospective client engagement. If it's a personal note, meeting recap unrelated to a deal, or something else entirely, return {"is_deal": false} and nothing else.
+Analyze the transcript and extract deal information. Even though this was flagged as deal-related, verify it actually describes a prospective client engagement. If the mention of "engagement letter" was incidental or the transcript isn't actually about a specific deal, return {"is_deal": false} and nothing else.
 
 If it IS about a prospective engagement, extract:
 - company_name: The prospect company/organization name
