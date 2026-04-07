@@ -7,8 +7,10 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { useAgentConfig, useUpdateAgentConfig } from "@/hooks/useAgent";
+import { useSyncStatus, useManualSync } from "@/hooks/useSyncStatus";
 import { toast } from "sonner";
-import { Bot, Zap, RefreshCcw, Bell } from "lucide-react";
+import { Bot, Zap, RefreshCcw, Bell, AlertCircle, CheckCircle2, Clock, Loader2 } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 
 // ─── Agent config section ─────────────────────────────────────────────────────
 
@@ -233,63 +235,132 @@ function AgentSettings() {
 
 // ─── Integrations section ─────────────────────────────────────────────────────
 
+const INTEGRATION_META: Record<string, { label: string; description: string; static?: boolean; staticBadge?: string; staticCls?: string }> = {
+  gmail: {
+    label: "Gmail",
+    description: "Emails to/from contacts are synced and appear on contact timelines.",
+  },
+  gcal: {
+    label: "Google Calendar",
+    description: "Calendar events with contacts are synced as meeting interactions.",
+  },
+  quickbooks: {
+    label: "QuickBooks",
+    description: "Invoices are imported from QuickBooks and matched to companies.",
+  },
+  bd_agent: {
+    label: "BD Agent",
+    description: "Daily autonomous outreach run powered by Claude + Perplexity via n8n.",
+  },
+  perplexity: {
+    label: "Perplexity API",
+    description: "Real-time research on high-priority contacts before outreach drafts.",
+    static: true,
+    staticBadge: "Active",
+    staticCls: "bg-blue-100 text-blue-700 border-blue-200",
+  },
+  twilio: {
+    label: "Twilio SMS",
+    description: "Sends your daily BD briefing via SMS to your registered number.",
+    static: true,
+    staticBadge: "Active",
+    staticCls: "bg-blue-100 text-blue-700 border-blue-200",
+  },
+};
+
+function syncStatusBadge(status: string | null) {
+  if (!status || status === "never") {
+    return { icon: <Clock className="h-3 w-3" />, label: "Never run", cls: "bg-slate-100 text-slate-600 border-slate-200" };
+  }
+  if (status === "requested") {
+    return { icon: <Loader2 className="h-3 w-3 animate-spin" />, label: "Syncing…", cls: "bg-blue-100 text-blue-700 border-blue-200" };
+  }
+  if (status === "success") {
+    return { icon: <CheckCircle2 className="h-3 w-3" />, label: "Synced", cls: "bg-emerald-100 text-emerald-700 border-emerald-200" };
+  }
+  if (status === "error") {
+    return { icon: <AlertCircle className="h-3 w-3" />, label: "Error", cls: "bg-red-100 text-red-700 border-red-200" };
+  }
+  return { icon: <Clock className="h-3 w-3" />, label: status, cls: "bg-slate-100 text-slate-600 border-slate-200" };
+}
+
 function IntegrationsSection() {
-  const integrations = [
-    {
-      name: "Gmail / Google Calendar",
-      status: "via n8n",
-      description: "Contact emails and calendar events are synced weekly via n8n workflow.",
-      badge: "Syncing",
-      badgeCls: "bg-emerald-100 text-emerald-700 border-emerald-200",
-    },
-    {
-      name: "QuickBooks",
-      status: "via n8n",
-      description: "Invoices are imported from QuickBooks and matched to engagements.",
-      badge: "Syncing",
-      badgeCls: "bg-emerald-100 text-emerald-700 border-emerald-200",
-    },
-    {
-      name: "Perplexity API",
-      status: "via n8n",
-      description: "Used by the BD agent for real-time research on high-priority contacts.",
-      badge: "Active",
-      badgeCls: "bg-blue-100 text-blue-700 border-blue-200",
-    },
-    {
-      name: "Twilio SMS",
-      status: "via n8n",
-      description: "Sends your daily BD briefing via SMS to your registered number.",
-      badge: "Active",
-      badgeCls: "bg-blue-100 text-blue-700 border-blue-200",
-    },
-    {
-      name: "Claude API",
-      status: "via n8n",
-      description: "Powers the agent's reasoning and outreach drafting via Anthropic API.",
-      badge: "Active",
-      badgeCls: "bg-violet-100 text-violet-700 border-violet-200",
-    },
-  ];
+  const { data: syncRows = [], isLoading } = useSyncStatus();
+  const manualSync = useManualSync();
+
+  const syncMap = Object.fromEntries(syncRows.map((r) => [r.service, r]));
+
+  function handleSync(service: string) {
+    manualSync.mutate(service, {
+      onSuccess: () => toast.success(`Sync requested for ${INTEGRATION_META[service]?.label ?? service}`),
+      onError: () => toast.error("Failed to request sync"),
+    });
+  }
 
   return (
     <div className="flex flex-col gap-3">
-      {integrations.map((intg) => (
-        <Card key={intg.name}>
-          <CardContent className="pt-4 flex items-start justify-between gap-4">
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center gap-2">
-                <p className="text-sm font-medium">{intg.name}</p>
-                <Badge variant="outline" className={`text-xs ${intg.badgeCls}`}>
-                  {intg.badge}
-                </Badge>
+      {Object.entries(INTEGRATION_META).map(([key, meta]) => {
+        if (meta.static) {
+          return (
+            <Card key={key}>
+              <CardContent className="pt-4 flex items-start justify-between gap-4">
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium">{meta.label}</p>
+                    <Badge variant="outline" className={`text-xs ${meta.staticCls}`}>
+                      {meta.staticBadge}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{meta.description}</p>
+                </div>
+                <span className="text-xs text-muted-foreground shrink-0">via n8n</span>
+              </CardContent>
+            </Card>
+          );
+        }
+
+        const row = syncMap[key];
+        const badge = syncStatusBadge(row?.last_sync_status ?? null);
+        const lastRun = row?.last_sync_at
+          ? formatDistanceToNow(new Date(row.last_sync_at), { addSuffix: true })
+          : null;
+
+        return (
+          <Card key={key}>
+            <CardContent className="pt-4 flex items-start justify-between gap-4">
+              <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium">{meta.label}</p>
+                  <Badge variant="outline" className={`text-xs flex items-center gap-1 ${badge.cls}`}>
+                    {badge.icon}
+                    {badge.label}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">{meta.description}</p>
+                {lastRun && (
+                  <p className="text-xs text-muted-foreground">
+                    Last sync: {lastRun}
+                    {row?.records_synced != null && ` — ${row.records_synced} records`}
+                  </p>
+                )}
+                {row?.error_message && (
+                  <p className="text-xs text-red-600 truncate">{row.error_message}</p>
+                )}
               </div>
-              <p className="text-xs text-muted-foreground">{intg.description}</p>
-            </div>
-            <span className="text-xs text-muted-foreground shrink-0">{intg.status}</span>
-          </CardContent>
-        </Card>
-      ))}
+              <Button
+                variant="outline"
+                size="sm"
+                className="shrink-0 text-xs"
+                disabled={manualSync.isPending || row?.last_sync_status === "requested"}
+                onClick={() => handleSync(key)}
+              >
+                <RefreshCcw className="h-3 w-3 mr-1" />
+                Sync now
+              </Button>
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 }
