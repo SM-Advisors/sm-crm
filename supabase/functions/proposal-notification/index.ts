@@ -71,38 +71,39 @@ Deno.serve(async (req) => {
       ? `$${Number(deal.value).toLocaleString()}`
       : "TBD";
 
-    const letterPrompt = `You are drafting a first-pass engagement letter for SM Advisors, an AI enablement advisory firm founded by Cory Kunz.
+    const letterPrompt = `You are filling in SM Advisors' standard AI Enablement engagement letter template for a new prospective client. Do NOT rewrite or regenerate the legal terms -- they are standardized. Your job is to:
 
-Use the following template structure. Fill in all specifics based on the deal information and transcript. Where you're making assumptions or need human review, mark those sections with [REVIEW: reason].
+1. Fill in all placeholders with the correct deal information
+2. Customize Attachment A based on what was discussed (which phases apply, fee amount)
+3. Mark anything you're inferring or guessing with [REVIEW: reason]
 
-ENGAGEMENT LETTER TEMPLATE STRUCTURE:
-1. Date and addressee block
-2. Opening paragraph - Thank them for the conversation, express enthusiasm about the engagement
-3. Scope of Services - What SM Advisors will deliver (reference specific services discussed)
-4. Timeline - Proposed schedule and milestones
-5. Investment - Fee structure and payment terms
-6. Terms - Standard engagement terms (30-day termination notice, confidentiality, IP ownership)
-7. Next Steps - What happens after they sign
-8. Signature block for both parties
+PLACEHOLDERS TO FILL:
+- <Date> = today's date
+- <Addressee> = ${contactName}${contactTitle ? ", " + contactTitle : ""}
+- <Address Address> = [REVIEW: Client address needed]
+- <Client Name> and <Client> = ${companyName}
 
 DEAL INFORMATION:
 - Company: ${companyName}
-- Contact: ${contactName}${contactTitle ? `, ${contactTitle}` : ""}
+- Contact: ${contactName}${contactTitle ? ", " + contactTitle : ""}
 - Service Type: ${deal.title}
 - Estimated Value: ${dealValue}
 - Description: ${deal.description || "Not specified"}
 - Notes: ${deal.notes || "None"}
 
 ${
-  transcript
-    ? `ORIGINAL TRANSCRIPT FROM CORY'S VOICE MEMO:
-${transcript.transcript_text}`
-    : "No transcript available - generate based on deal information only."
-}
+      transcript
+        ? `ORIGINAL TRANSCRIPT FROM CORY'S VOICE MEMO:\n${transcript.transcript_text}`
+        : "No transcript available."
+    }
 
-Generate the complete engagement letter. Write it in a professional but warm tone consistent with SM Advisors' values of Care, Trust, Collaborate, and Innovate. Be specific where you have information, and use [REVIEW: ...] markers where you're filling in gaps.
-
-Return the letter as clean text (no markdown formatting).`;
+INSTRUCTIONS:
+- Return the COMPLETE filled-in engagement letter starting from the date line through the end of Attachment A
+- Keep ALL standard legal language exactly as-is (Scope of Services intro, Acceptance of Formal Deliverables, Definition of Engagement Completion, Fees section, Contract Termination, Miscellaneous, Acceptance block, and all SM Advisors Engagement Terms)
+- For Attachment A: Based on the transcript and deal info, determine which of the 8 phases are relevant. Include only the phases discussed or implied. If unclear, include Phases 0-2 as a starting point and mark with [REVIEW: confirm which phases apply]
+- For the fee in Attachment A: Use the deal value if provided. If the deal seems like a Phase 0 only, set Phase 0 fee to the deal value. If multi-phase, set Phase 0 at $10,000 and note the remaining phases fee as [REVIEW: confirm fee for Phases 1-7 based on scope]
+- Do NOT include the SM Advisors Engagement Terms section in your output (that lengthy legal section from "SM Advisors wants Client to understand..." through the end). Jamie will append that separately since it never changes.
+- Return clean text, no markdown formatting`;
 
     const claudeResponse = await fetch(
       "https://api.anthropic.com/v1/messages",
