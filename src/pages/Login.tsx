@@ -23,10 +23,9 @@ export default function Login() {
     }
 
     if (result.redirected) {
-      return; // browser will redirect to Google
+      return;
     }
 
-    // Session set — navigate to dashboard
     navigate("/");
   };
 
