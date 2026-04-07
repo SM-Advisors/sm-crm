@@ -460,6 +460,88 @@ export type Database = {
           },
         ]
       }
+      deal_events: {
+        Row: {
+          created_at: string | null
+          deal_id: string | null
+          error_message: string | null
+          event_type: string
+          id: string
+          payload: Json | null
+          processed: boolean | null
+          processed_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          deal_id?: string | null
+          error_message?: string | null
+          event_type: string
+          id?: string
+          payload?: Json | null
+          processed?: boolean | null
+          processed_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          deal_id?: string | null
+          error_message?: string | null
+          event_type?: string
+          id?: string
+          payload?: Json | null
+          processed?: boolean | null
+          processed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_events_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "sales_deals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deal_transcripts: {
+        Row: {
+          created_at: string | null
+          deal_id: string | null
+          id: string
+          source_url: string | null
+          transcript_date: string | null
+          transcript_duration: string | null
+          transcript_text: string
+          transcript_title: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          deal_id?: string | null
+          id?: string
+          source_url?: string | null
+          transcript_date?: string | null
+          transcript_duration?: string | null
+          transcript_text: string
+          transcript_title?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          deal_id?: string | null
+          id?: string
+          source_url?: string | null
+          transcript_date?: string | null
+          transcript_duration?: string | null
+          transcript_text?: string
+          transcript_title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_transcripts_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "sales_deals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       delivery_engagements: {
         Row: {
           actual_end_date: string | null
@@ -1077,6 +1159,8 @@ export type Database = {
       }
       backfill_invoice_contacts: { Args: never; Returns: number }
       refresh_billing_summary: { Args: never; Returns: undefined }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
       agent_action_type:
