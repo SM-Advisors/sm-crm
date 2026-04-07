@@ -1,33 +1,18 @@
 
 
-## Fix Build Error in InvoiceDetail.tsx
+# Add Edge Function Secrets
 
-The build is failing because `InvoiceDetail.tsx` references `qb_invoice_url` which doesn't exist on the `Invoice` type. The type only has `qb_invoice_id`.
+## What
+Add three new secrets to the project's backend so Edge Functions can access them at runtime:
+1. **CLAUDE_API_KEY** — for Claude API calls (BD agent via edge functions)
+2. **RESEND_API_KEY** — for sending emails via Resend
+3. **WEBHOOK_SECRET** — for authenticating inbound webhook requests
 
-### Change
+## How
+Use the `add_secret` tool three times to prompt you for each value. You'll paste each key when prompted — values are stored securely and never visible in code.
 
-**File: `src/pages/InvoiceDetail.tsx`** (lines ~226-233)
-
-Replace the `qb_invoice_url` references. Since there's no URL field in the type, remove the QuickBooks link section entirely (there's no URL to link to, only an ID).
-
-Remove this block:
-```tsx
-{invoice.qb_invoice_url && (
-  <a href={invoice.qb_invoice_url} ...>
-    View in QuickBooks
-  </a>
-)}
-```
-
-Replace with a conditional that shows the QB invoice ID if present:
-```tsx
-{invoice.qb_invoice_id && (
-  <p className="flex items-center gap-2 text-sm text-muted-foreground">
-    <ExternalLink className="h-3.5 w-3.5" />
-    QuickBooks ID: {invoice.qb_invoice_id}
-  </p>
-)}
-```
-
-This fixes the TypeScript error and keeps the QB reference visible without a broken link.
+## Notes
+- These are **runtime secrets** available to Edge Functions only (not build-time)
+- Existing secrets (N8N_WEBHOOK_SECRET, SUPABASE_*, LOVABLE_API_KEY) are unchanged
+- No code or migration changes needed — just secret storage
 
