@@ -10,13 +10,13 @@ export type ContactCategory =
   | "personal";
 
 export type SalesStage =
-  | "lead"
-  | "qualified"
-  | "discovery"
+  | "qualification"
+  | "needs_analysis"
   | "proposal"
-  | "negotiation"
+  | "cold_deal"
   | "closed_won"
-  | "closed_lost";
+  | "closed_lost"
+  | "service_complete";
 
 export type DeliveryStage =
   | "onboarding"
@@ -382,13 +382,13 @@ export interface FilterConfig {
 }
 
 export const SALES_STAGE_LABELS: Record<SalesStage, string> = {
-  lead: "Lead",
-  qualified: "Qualified",
-  discovery: "Discovery",
-  proposal: "Proposal",
-  negotiation: "Negotiation",
+  qualification: "Qualification",
+  needs_analysis: "Needs Analysis",
+  proposal: "Proposal/Price Quote",
+  cold_deal: "Cold Deal",
   closed_won: "Closed Won",
   closed_lost: "Closed Lost",
+  service_complete: "Service Complete",
 };
 
 export const DELIVERY_STAGE_LABELS: Record<DeliveryStage, string> = {
