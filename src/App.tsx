@@ -16,7 +16,7 @@ import InvoiceDetailPage from "./pages/InvoiceDetail";
 import ReportsPage from "./pages/Reports";
 import AgentLogPage from "./pages/AgentLog";
 import SettingsPage from "./pages/SettingsPage";
-import NewEngagementPage from "./pages/NewEngagement";
+import NotesPage from "./pages/Notes";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -55,8 +55,9 @@ const App = () => (
             <Route path="/invoices" element={<InvoicesPage />} />
             <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
 
-            {/* Engagement Intake */}
-            <Route path="/new-engagement" element={<NewEngagementPage />} />
+            {/* Notes */}
+            <Route path="/notes" element={<NotesPage />} />
+            <Route path="/new-engagement" element={<Navigate to="/notes" replace />} />
 
             {/* Other */}
             <Route path="/reports" element={<ReportsPage />} />
