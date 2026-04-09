@@ -42,7 +42,7 @@ export function useSalesDeal(id: string) {
       // Fetch invoices linked to this deal via engagement
       const { data: engagements } = await supabase
         .from("delivery_engagements")
-        .select("id")
+        .select("id, company_id")
         .eq("sales_deal_id", id);
 
       let invoices: Invoice[] = [];
