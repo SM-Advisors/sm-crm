@@ -47,13 +47,15 @@ export function useSalesDeal(id: string) {
 
       let invoices: Invoice[] = [];
       if (engagements && engagements.length > 0) {
-        const engIds = engagements.map((e) => e.id);
-        const { data: invData } = await supabase
-          .from("invoices")
-          .select("*, company:companies(id,name)")
-          .in("company_id", engagements.map((e: any) => e.company_id).filter(Boolean))
-          .order("invoice_date", { ascending: false });
-        invoices = (invData ?? []) as unknown as Invoice[];
+        const companyIds = engagements.map((e) => e.company_id).filter(Boolean) as string[];
+        if (companyIds.length > 0) {
+          const { data: invData } = await supabase
+            .from("invoices")
+            .select("*")
+            .in("company_id", companyIds)
+            .order("invoice_date", { ascending: false });
+          invoices = (invData ?? []) as unknown as Invoice[];
+        }
       }
 
       return {
