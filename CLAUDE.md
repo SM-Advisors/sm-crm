@@ -164,6 +164,15 @@ Do not add API keys for Claude, Perplexity, Twilio, or QuickBooks to this app �
 
 ---
 
+## n8n Integration Notes
+
+- n8n does **NOT** have a native Supabase node. The database is Supabase hosted through Lovable.
+- In n8n workflows, use the **Postgres node** to connect to the Supabase PostgreSQL database directly, or use **HTTP Request node** with the Supabase REST API.
+- Connection details (host, port, database, user, password) are in the Lovable/Supabase dashboard under **Settings > Database**.
+- When writing n8n workflow instructions, always use Postgres node or HTTP Request node — never reference a "Supabase node".
+
+---
+
 ## Coding Standards
 
 - TypeScript strict mode — no `any` types
