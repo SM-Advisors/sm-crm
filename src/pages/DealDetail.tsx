@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/select";
 import { useSalesDeal, useUpdateSalesDeal } from "@/hooks/useDeals";
 import { SALES_STAGE_LABELS, INTERACTION_TYPE_LABELS } from "@/types";
-import type { SalesStage } from "@/types";
+import type { SalesStage, SalesDeal } from "@/types";
 import { toast } from "sonner";
 
 function fmtDate(iso?: string | null) {

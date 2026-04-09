@@ -51,7 +51,7 @@ export function useSalesDeal(id: string) {
         const { data: invData } = await supabase
           .from("invoices")
           .select("*, company:companies(id,name)")
-          .in("engagement_id", engIds)
+          .in("company_id", engagements.map((e: any) => e.company_id).filter(Boolean))
           .order("invoice_date", { ascending: false });
         invoices = (invData ?? []) as unknown as Invoice[];
       }
