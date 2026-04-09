@@ -410,6 +410,7 @@ export type Database = {
       contacts: {
         Row: {
           association_or_affiliation: string | null
+          city: string | null
           company_id: string | null
           created_at: string | null
           description: string | null
@@ -430,11 +431,13 @@ export type Database = {
           qb_contact_id: string | null
           referral_source: string | null
           source: string | null
+          state: string | null
           title: string | null
           updated_at: string | null
         }
         Insert: {
           association_or_affiliation?: string | null
+          city?: string | null
           company_id?: string | null
           created_at?: string | null
           description?: string | null
@@ -455,11 +458,13 @@ export type Database = {
           qb_contact_id?: string | null
           referral_source?: string | null
           source?: string | null
+          state?: string | null
           title?: string | null
           updated_at?: string | null
         }
         Update: {
           association_or_affiliation?: string | null
+          city?: string | null
           company_id?: string | null
           created_at?: string | null
           description?: string | null
@@ -480,6 +485,7 @@ export type Database = {
           qb_contact_id?: string | null
           referral_source?: string | null
           source?: string | null
+          state?: string | null
           title?: string | null
           updated_at?: string | null
         }
@@ -1067,6 +1073,9 @@ export type Database = {
           actual_close_date: string | null
           company_id: string | null
           contact_id: string | null
+          contract_sent_date: string | null
+          contract_status: string | null
+          countersigned_date: string | null
           created_at: string | null
           description: string | null
           engagement_letter_url: string | null
@@ -1085,6 +1094,9 @@ export type Database = {
           actual_close_date?: string | null
           company_id?: string | null
           contact_id?: string | null
+          contract_sent_date?: string | null
+          contract_status?: string | null
+          countersigned_date?: string | null
           created_at?: string | null
           description?: string | null
           engagement_letter_url?: string | null
@@ -1103,6 +1115,9 @@ export type Database = {
           actual_close_date?: string | null
           company_id?: string | null
           contact_id?: string | null
+          contract_sent_date?: string | null
+          contract_status?: string | null
+          countersigned_date?: string | null
           created_at?: string | null
           description?: string | null
           engagement_letter_url?: string | null
