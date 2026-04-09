@@ -244,6 +244,8 @@ function CreateContactDialog({
     company_id: "",
     linkedin_url: "",
     description: "",
+    city: "",
+    state: "",
     category: "" as ContactCategory | "",
   });
 
@@ -271,6 +273,8 @@ function CreateContactDialog({
             company_id: "",
             linkedin_url: "",
             description: "",
+            city: "",
+            state: "",
             category: "",
           });
           onOpenChange(false);
@@ -368,6 +372,20 @@ function CreateContactDialog({
               onChange={(e) => setForm((f) => ({ ...f, linkedin_url: e.target.value }))}
             />
           </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>City</Label>
+            <Input
+              value={form.city}
+              onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>State</Label>
+            <Input
+              value={form.state}
+              onChange={(e) => setForm((f) => ({ ...f, state: e.target.value }))}
+            />
+          </div>
           <div className="flex flex-col gap-1.5 col-span-2">
             <Label>Notes</Label>
             <Textarea
@@ -390,12 +408,49 @@ function CreateContactDialog({
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+const ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+function AlphabetBar({ active, onChange }: { active: string | null; onChange: (l: string | null) => void }) {
+  return (
+    <div className="flex flex-wrap gap-1">
+      <Button
+        size="sm"
+        variant={active === null ? "default" : "ghost"}
+        className="h-7 w-9 text-xs px-0"
+        onClick={() => onChange(null)}
+      >
+        All
+      </Button>
+      {ALPHA.map((l) => (
+        <Button
+          key={l}
+          size="sm"
+          variant={active === l ? "default" : "ghost"}
+          className="h-7 w-7 text-xs px-0"
+          onClick={() => onChange(active === l ? null : l)}
+        >
+          {l}
+        </Button>
+      ))}
+    </div>
+  );
+}
+
 export default function ContactsPage() {
   const navigate = useNavigate();
   const { data: contacts = [], isLoading } = useContacts();
   const columns = useMemo(() => buildColumns(navigate), [navigate]);
   const [createOpen, setCreateOpen] = useState(false);
+  const [letterFilter, setLetterFilter] = useState<string | null>(null);
   const deleteContact = useDeleteContact();
+
+  const filtered = useMemo(() => {
+    if (!letterFilter) return contacts;
+    return contacts.filter((c) => {
+      const name = (c.last_name || c.first_name || "").toUpperCase();
+      return name.startsWith(letterFilter);
+    });
+  }, [contacts, letterFilter]);
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -403,7 +458,7 @@ export default function ContactsPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Contacts</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {isLoading ? "Loading…" : `${contacts.length} contacts`}
+            {isLoading ? "Loading…" : `${filtered.length} contacts${letterFilter ? ` (${letterFilter})` : ""}`}
           </p>
         </div>
         <Button onClick={() => setCreateOpen(true)} className="gap-2">
@@ -417,18 +472,21 @@ export default function ContactsPage() {
           Loading contacts…
         </div>
       ) : (
-        <DataTable
-          data={contacts}
-          columns={columns}
-          exportName="contacts"
-          toExportRow={toExportRow}
-          searchPlaceholder="Search contacts…"
-          onBulkDelete={(ids) => {
-            Promise.all(ids.map((id) => deleteContact.mutateAsync(id)))
-              .then(() => toast.success(`${ids.length} contact(s) deleted`))
-              .catch(() => toast.error("Failed to delete some contacts"));
-          }}
-        />
+        <>
+          <AlphabetBar active={letterFilter} onChange={setLetterFilter} />
+          <DataTable
+            data={filtered}
+            columns={columns}
+            exportName="contacts"
+            toExportRow={toExportRow}
+            searchPlaceholder="Search contacts…"
+            onBulkDelete={(ids) => {
+              Promise.all(ids.map((id) => deleteContact.mutateAsync(id)))
+                .then(() => toast.success(`${ids.length} contact(s) deleted`))
+                .catch(() => toast.error("Failed to delete some contacts"));
+            }}
+          />
+        </>
       )}
 
       <CreateContactDialog open={createOpen} onOpenChange={setCreateOpen} />

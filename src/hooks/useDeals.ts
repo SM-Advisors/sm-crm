@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import type { SalesDeal, DeliveryEngagement } from "@/types";
+import type { SalesDeal, DeliveryEngagement, Interaction, Invoice } from "@/types";
 
 export function useSalesDeals() {
   return useQuery({
@@ -12,6 +12,55 @@ export function useSalesDeals() {
         .order("stage_order", { ascending: true });
       if (error) throw error;
       return data as unknown as SalesDeal[];
+    },
+  });
+}
+
+export function useSalesDeal(id: string) {
+  return useQuery({
+    queryKey: ["sales_deal", id],
+    enabled: !!id,
+    queryFn: async (): Promise<SalesDeal> => {
+      const { data, error } = await supabase
+        .from("sales_deals")
+        .select("*, company:companies(*), contact:contacts(*, contact_categories(category))")
+        .eq("id", id)
+        .single();
+      if (error) throw error;
+
+      // Fetch related interactions (via contact_id or company_id)
+      let interactions: Interaction[] = [];
+      if (data.contact_id) {
+        const { data: ints } = await supabase
+          .from("interactions")
+          .select("*")
+          .eq("contact_id", data.contact_id)
+          .order("occurred_at", { ascending: false });
+        interactions = (ints ?? []) as unknown as Interaction[];
+      }
+
+      // Fetch invoices linked to this deal via engagement
+      const { data: engagements } = await supabase
+        .from("delivery_engagements")
+        .select("id")
+        .eq("sales_deal_id", id);
+
+      let invoices: Invoice[] = [];
+      if (engagements && engagements.length > 0) {
+        const engIds = engagements.map((e) => e.id);
+        const { data: invData } = await supabase
+          .from("invoices")
+          .select("*, company:companies(id,name)")
+          .in("engagement_id", engIds)
+          .order("invoice_date", { ascending: false });
+        invoices = (invData ?? []) as unknown as Invoice[];
+      }
+
+      return {
+        ...data,
+        interactions,
+        invoices,
+      } as unknown as SalesDeal;
     },
   });
 }
