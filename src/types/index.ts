@@ -101,6 +101,8 @@ export interface Contact {
   last_contacted_at: string | null;
   last_contact_type: InteractionType | null;
   next_follow_up_at: string | null;
+  city: string | null;
+  state: string | null;
   created_at: string;
   updated_at: string;
   // Joined
@@ -149,11 +151,16 @@ export interface SalesDeal {
   lost_reason: string | null;
   engagement_letter_url: string | null;
   notes: string | null;
+  contract_sent_date: string | null;
+  countersigned_date: string | null;
+  contract_status: "none" | "sent" | "countersigned" | "fulfilled" | null;
   created_at: string;
   updated_at: string;
   // Joined
   company?: Company | null;
   contact?: Contact | null;
+  interactions?: Interaction[];
+  invoices?: Invoice[];
 }
 
 export interface DeliveryEngagement {

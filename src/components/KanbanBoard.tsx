@@ -9,7 +9,7 @@ import {
   Draggable,
   type DropResult,
 } from "@hello-pangea/dnd";
-import { Plus, GripVertical, DollarSign, Building2, User, CalendarIcon, Pencil, Trash2 } from "lucide-react";
+import { Plus, GripVertical, DollarSign, Building2, User, CalendarIcon, Pencil, Trash2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -171,6 +171,18 @@ function KanbanCardItem({
                     </div>
                   </div>
                 )}
+                {card.close_date && (() => {
+                  const isOverdue = new Date(card.close_date) < new Date() &&
+                    !["closed_won", "closed_lost", "service_complete", "completed"].includes(card.stage);
+                  return (
+                    <div className={`flex items-center gap-1 text-xs ${isOverdue ? "text-orange-600 font-medium" : "text-muted-foreground"}`}>
+                      {isOverdue && <AlertTriangle className="h-3 w-3" />}
+                      <CalendarIcon className="h-3 w-3" />
+                      {new Date(card.close_date).toLocaleDateString()}
+                      {isOverdue && " — Needs Follow-Up"}
+                    </div>
+                  );
+                })()}
                 {card.probability != null && (
                   <Badge variant="outline" className="text-xs w-fit">
                     {card.probability}% likely
@@ -377,9 +389,9 @@ function AddCardDialog({
             </div>
           </div>
 
-          {/* Closing Date */}
+          {/* Follow Up Date */}
           <div className="flex flex-col gap-1.5">
-            <Label>Closing Date</Label>
+            <Label>Follow Up Date</Label>
             <Input
               type="date"
               value={closingDate}
@@ -523,7 +535,7 @@ function EditCardDialog({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label>Closing Date</Label>
+            <Label>Follow Up Date</Label>
             <Input type="date" value={closingDate} onChange={(e) => setClosingDate(e.target.value)} />
           </div>
 

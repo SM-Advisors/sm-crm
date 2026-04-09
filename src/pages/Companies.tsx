@@ -249,12 +249,46 @@ function CreateCompanyDialog({
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+const ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+function AlphabetBar({ active, onChange }: { active: string | null; onChange: (l: string | null) => void }) {
+  return (
+    <div className="flex flex-wrap gap-1">
+      <Button
+        size="sm"
+        variant={active === null ? "default" : "ghost"}
+        className="h-7 w-9 text-xs px-0"
+        onClick={() => onChange(null)}
+      >
+        All
+      </Button>
+      {ALPHA.map((l) => (
+        <Button
+          key={l}
+          size="sm"
+          variant={active === l ? "default" : "ghost"}
+          className="h-7 w-7 text-xs px-0"
+          onClick={() => onChange(active === l ? null : l)}
+        >
+          {l}
+        </Button>
+      ))}
+    </div>
+  );
+}
+
 export default function CompaniesPage() {
   const navigate = useNavigate();
   const { data: companies = [], isLoading } = useCompanies();
   const columns = useMemo(() => buildColumns(navigate), [navigate]);
   const [createOpen, setCreateOpen] = useState(false);
+  const [letterFilter, setLetterFilter] = useState<string | null>(null);
   const deleteCompany = useDeleteCompany();
+
+  const filtered = useMemo(() => {
+    if (!letterFilter) return companies;
+    return companies.filter((c) => c.name?.toUpperCase().startsWith(letterFilter));
+  }, [companies, letterFilter]);
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -262,7 +296,7 @@ export default function CompaniesPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Companies</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {isLoading ? "Loading…" : `${companies.length} companies`}
+            {isLoading ? "Loading…" : `${filtered.length} companies${letterFilter ? ` (${letterFilter})` : ""}`}
           </p>
         </div>
         <Button onClick={() => setCreateOpen(true)} className="gap-2">
@@ -276,18 +310,21 @@ export default function CompaniesPage() {
           Loading companies…
         </div>
       ) : (
-        <DataTable
-          data={companies}
-          columns={columns}
-          exportName="companies"
-          toExportRow={toExportRow}
-          searchPlaceholder="Search companies…"
-          onBulkDelete={(ids) => {
-            Promise.all(ids.map((id) => deleteCompany.mutateAsync(id)))
-              .then(() => toast.success(`${ids.length} company(ies) deleted`))
-              .catch(() => toast.error("Failed to delete some companies"));
-          }}
-        />
+        <>
+          <AlphabetBar active={letterFilter} onChange={setLetterFilter} />
+          <DataTable
+            data={filtered}
+            columns={columns}
+            exportName="companies"
+            toExportRow={toExportRow}
+            searchPlaceholder="Search companies…"
+            onBulkDelete={(ids) => {
+              Promise.all(ids.map((id) => deleteCompany.mutateAsync(id)))
+                .then(() => toast.success(`${ids.length} company(ies) deleted`))
+                .catch(() => toast.error("Failed to delete some companies"));
+            }}
+          />
+        </>
       )}
 
       <CreateCompanyDialog open={createOpen} onOpenChange={setCreateOpen} />

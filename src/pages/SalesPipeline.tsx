@@ -133,7 +133,7 @@ export default function SalesPipelinePage() {
         onCreate={handleCreate}
         onUpdate={handleUpdate}
         onDelete={handleDelete}
-        onCardClick={(card) => navigate(`/contacts/${card.contact?.id ?? ""}`)}
+        onCardClick={(card) => navigate(`/sales-deals/${card.id}`)}
         companies={companies}
         contacts={contacts}
       />

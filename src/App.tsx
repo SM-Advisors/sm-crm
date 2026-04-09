@@ -18,6 +18,7 @@ import ReportsPage from "./pages/Reports";
 import AgentLogPage from "./pages/AgentLog";
 import SettingsPage from "./pages/SettingsPage";
 import NotesPage from "./pages/Notes";
+import DealDetailPage from "./pages/DealDetail";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 
@@ -59,6 +60,7 @@ const App = () => (
 
             {/* Pipelines */}
             <Route path="/sales-pipeline" element={<SalesPipelinePage />} />
+            <Route path="/sales-deals/:id" element={<DealDetailPage />} />
             <Route path="/delivery-pipeline" element={<DeliveryPipelinePage />} />
 
             {/* Invoices */}

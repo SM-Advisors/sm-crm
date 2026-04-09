@@ -16,6 +16,7 @@ import {
   Briefcase,
   Folder,
   Trash2,
+  MapPin,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -467,7 +468,7 @@ function PipelinesTab({ contact }: { contact: ContactWithDetails }) {
               <Card
                 key={deal.id}
                 className="cursor-pointer hover:bg-muted/40 transition-colors"
-                onClick={() => navigate("/sales-pipeline")}
+                onClick={() => navigate(`/sales-deals/${deal.id}`)}
               >
                 <CardContent className="pt-4 flex items-center justify-between">
                   <div>
@@ -566,7 +567,7 @@ function PipelinesTab({ contact }: { contact: ContactWithDetails }) {
               </div>
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label>Closing Date</Label>
+              <Label>Follow Up Date</Label>
               <Input
                 type="date"
                 value={dealForm.expected_close_date}
@@ -595,13 +596,110 @@ function PipelinesTab({ contact }: { contact: ContactWithDetails }) {
 
 // Files tab ───────────────────────────────────────────────────────────────────
 
+interface ContactFile {
+  id: string;
+  name: string;
+  created_at: string;
+  url: string;
+}
+
 function FilesTab({ contact }: { contact: ContactWithDetails }) {
   const docs = contact.document_links ?? [];
   const qc = useQueryClient();
-  const [addOpen, setAddOpen] = useState(false);
+  const [addLinkOpen, setAddLinkOpen] = useState(false);
   const [linkTitle, setLinkTitle] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [files, setFiles] = useState<ContactFile[]>([]);
+  const [filesLoaded, setFilesLoaded] = useState(false);
+
+  // Load uploaded files from Supabase Storage
+  useState(() => {
+    (async () => {
+      const folder = `contacts/${contact.id}`;
+      const { data: list } = await supabase.storage.from("contact-files").list(folder);
+      if (list && list.length > 0) {
+        const mapped = list.map((f) => {
+          const { data: urlData } = supabase.storage
+            .from("contact-files")
+            .getPublicUrl(`${folder}/${f.name}`);
+          return {
+            id: f.id ?? f.name,
+            name: f.name,
+            created_at: f.created_at ?? "",
+            url: urlData.publicUrl,
+          };
+        });
+        setFiles(mapped);
+      }
+      setFilesLoaded(true);
+    })();
+  });
+
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = e.target.files;
+    if (!selected || selected.length === 0) return;
+    setUploading(true);
+    const folder = `contacts/${contact.id}`;
+    let uploadCount = 0;
+    for (let i = 0; i < selected.length; i++) {
+      const file = selected[i];
+      const filePath = `${folder}/${file.name}`;
+      const { error } = await supabase.storage.from("contact-files").upload(filePath, file, {
+        cacheControl: "3600",
+        upsert: true,
+      });
+      if (error) {
+        toast.error(`Failed to upload ${file.name}: ${error.message}`);
+      } else {
+        uploadCount++;
+      }
+    }
+    setUploading(false);
+    if (uploadCount > 0) {
+      toast.success(`${uploadCount} file(s) uploaded`);
+      // Refresh file list
+      const { data: list } = await supabase.storage.from("contact-files").list(folder);
+      if (list) {
+        setFiles(
+          list.map((f) => {
+            const { data: urlData } = supabase.storage
+              .from("contact-files")
+              .getPublicUrl(`${folder}/${f.name}`);
+            return {
+              id: f.id ?? f.name,
+              name: f.name,
+              created_at: f.created_at ?? "",
+              url: urlData.publicUrl,
+            };
+          })
+        );
+      }
+    }
+    // Reset input
+    e.target.value = "";
+  }
+
+  async function handleDeleteFile(fileName: string) {
+    const filePath = `contacts/${contact.id}/${fileName}`;
+    const { error } = await supabase.storage.from("contact-files").remove([filePath]);
+    if (error) { toast.error("Failed to delete file"); return; }
+    toast.success("File deleted");
+    setFiles((prev) => prev.filter((f) => f.name !== fileName));
+  }
+
+  async function handleDownloadFile(fileName: string) {
+    const filePath = `contacts/${contact.id}/${fileName}`;
+    const { data, error } = await supabase.storage.from("contact-files").download(filePath);
+    if (error || !data) { toast.error("Failed to download file"); return; }
+    const url = URL.createObjectURL(data);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   async function handleAddLink() {
     if (!linkTitle.trim() || !linkUrl.trim()) {
@@ -622,25 +720,70 @@ function FilesTab({ contact }: { contact: ContactWithDetails }) {
     toast.success("Link added");
     setLinkTitle("");
     setLinkUrl("");
-    setAddOpen(false);
+    setAddLinkOpen(false);
     qc.invalidateQueries({ queryKey: ["contact", contact.id] });
   }
 
+  const hasContent = files.length > 0 || docs.length > 0;
+
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex justify-end">
-        <Button size="sm" onClick={() => setAddOpen(true)} className="gap-1.5">
-          <Plus className="h-4 w-4" />
+      <div className="flex justify-end gap-2">
+        <Button size="sm" variant="outline" onClick={() => setAddLinkOpen(true)} className="gap-1.5">
+          <ExternalLink className="h-4 w-4" />
           Add Link
         </Button>
+        <label>
+          <Button size="sm" className="gap-1.5 cursor-pointer" asChild disabled={uploading}>
+            <span>
+              <Plus className="h-4 w-4" />
+              {uploading ? "Uploading…" : "Upload File"}
+            </span>
+          </Button>
+          <input
+            type="file"
+            multiple
+            className="hidden"
+            onChange={handleUpload}
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png"
+          />
+        </label>
       </div>
 
-      {docs.length === 0 ? (
+      {!hasContent && filesLoaded ? (
         <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
-          No files linked yet.
+          No files yet. Upload a file or add a link.
         </div>
       ) : (
         <div className="flex flex-col gap-2">
+          {/* Uploaded files */}
+          {files.map((f) => (
+            <div
+              key={f.id}
+              className="flex items-center gap-3 p-3 rounded-md border hover:bg-muted/40 transition-colors"
+            >
+              <FileText className="h-4 w-4 text-primary shrink-0" />
+              <span className="text-sm flex-1 truncate">{f.name}</span>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs"
+                onClick={() => handleDownloadFile(f.name)}
+              >
+                Download
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs text-destructive hover:text-destructive"
+                onClick={() => handleDeleteFile(f.name)}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          ))}
+
+          {/* Document links */}
           {docs.map((doc) => (
             <a
               key={doc.id}
@@ -649,15 +792,15 @@ function FilesTab({ contact }: { contact: ContactWithDetails }) {
               rel="noopener noreferrer"
               className="flex items-center gap-3 p-3 rounded-md border hover:bg-muted/40 transition-colors"
             >
-              <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+              <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
               <span className="text-sm flex-1">{doc.title}</span>
-              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">Link</span>
             </a>
           ))}
         </div>
       )}
 
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+      <Dialog open={addLinkOpen} onOpenChange={setAddLinkOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add Document Link</DialogTitle>
@@ -682,7 +825,7 @@ function FilesTab({ contact }: { contact: ContactWithDetails }) {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setAddLinkOpen(false)}>Cancel</Button>
             <Button onClick={handleAddLink} disabled={saving}>Add Link</Button>
           </DialogFooter>
         </DialogContent>
@@ -711,6 +854,8 @@ function EditContactDialog({
     phone: contact.phone ?? "",
     linkedin_url: contact.linkedin_url ?? "",
     description: contact.description ?? "",
+    city: contact.city ?? "",
+    state: contact.state ?? "",
   });
 
   function handleSave() {
@@ -774,6 +919,20 @@ function EditContactDialog({
             <Input
               value={form.linkedin_url}
               onChange={(e) => setForm((f) => ({ ...f, linkedin_url: e.target.value }))}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>City</Label>
+            <Input
+              value={form.city}
+              onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>State</Label>
+            <Input
+              value={form.state}
+              onChange={(e) => setForm((f) => ({ ...f, state: e.target.value }))}
             />
           </div>
           <div className="flex flex-col gap-1.5 col-span-2">
@@ -929,6 +1088,14 @@ export default function ContactDetailPage() {
               >
                 {(contact as any).company.name}
               </button>
+            </div>
+          )}
+          {(contact.city || contact.state) && (
+            <div className="flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span className="text-sm">
+                {[contact.city, contact.state].filter(Boolean).join(", ")}
+              </span>
             </div>
           )}
           {contact.linkedin_url && (
