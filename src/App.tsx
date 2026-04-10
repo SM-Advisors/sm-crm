@@ -19,6 +19,7 @@ import AgentLogPage from "./pages/AgentLog";
 import SettingsPage from "./pages/SettingsPage";
 import NotesPage from "./pages/Notes";
 import DealDetailPage from "./pages/DealDetail";
+import AgentChatPage from "./pages/Agent";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 
@@ -73,6 +74,7 @@ const App = () => (
 
             {/* Other */}
             <Route path="/reports" element={<ReportsPage />} />
+            <Route path="/agent" element={<AgentChatPage />} />
             <Route path="/agent-log" element={<AgentLogPage />} />
             <Route path="/settings" element={<SettingsPage />} />
 
