@@ -17,6 +17,25 @@ function err(msg: string, status = 400) {
   return json({ error: msg }, status);
 }
 
+async function isAuthorized(req: Request): Promise<boolean> {
+  const agentSecret = req.headers.get("x-agent-secret");
+  const expectedSecret = Deno.env.get("AGENT_API_SECRET");
+  if (expectedSecret && agentSecret && agentSecret === expectedSecret) {
+    return true;
+  }
+  const authHeader = req.headers.get("authorization");
+  if (authHeader?.startsWith("Bearer ")) {
+    const token = authHeader.slice(7);
+    const sb = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!
+    );
+    const { data } = await sb.auth.getUser(token);
+    if (data?.user) return true;
+  }
+  return false;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -25,9 +44,7 @@ Deno.serve(async (req) => {
     return err("Method not allowed", 405);
   }
 
-  const agentSecret = req.headers.get("x-agent-secret");
-  const expectedSecret = Deno.env.get("AGENT_API_SECRET");
-  if (!expectedSecret || !agentSecret || agentSecret !== expectedSecret) {
+  if (!(await isAuthorized(req))) {
     return err("Unauthorized", 401);
   }
 
