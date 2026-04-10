@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Send, Plus, Bot, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
@@ -11,12 +10,6 @@ interface Message {
   role: "user" | "agent";
   text: string;
 }
-
-const AGENT_SECRET = (() => {
-  // We'll pass it through edge functions; the frontend just needs to auth
-  // We use a hook to get it from settings or env
-  return "";
-})();
 
 export default function AgentPage() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -39,29 +32,12 @@ export default function AgentPage() {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  const getAgentSecret = async (): Promise<string> => {
-    // Fetch from agent_config table or use a known value
-    // For now we invoke edge functions which handle the secret server-side
-    // The frontend passes auth via supabase session
-    const { data } = await supabase
-      .from("agent_config")
-      .select("config_value")
-      .eq("config_key", "agent_api_secret")
-      .single();
-    return (data?.config_value as { value?: string })?.value || "";
-  };
-
   const createSession = async () => {
     setIsCreatingSession(true);
     try {
-      const secret = await getAgentSecret();
       const { data, error } = await supabase.functions.invoke(
         "agent-session-create",
-        {
-          method: "POST",
-          headers: { "x-agent-secret": secret },
-          body: {},
-        }
+        { method: "POST", body: {} }
       );
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -77,18 +53,22 @@ export default function AgentPage() {
     }
   };
 
-  const startStream = async (sid: string, secret: string) => {
+  const startStream = async (sid: string) => {
     const controller = new AbortController();
     abortRef.current = controller;
     setIsStreaming(true);
 
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token || "";
+
       const url = `${supabaseUrl}/functions/v1/agent-session-stream?session_id=${encodeURIComponent(sid)}`;
 
       const resp = await fetch(url, {
         headers: {
-          "x-agent-secret": secret,
+          Authorization: `Bearer ${token}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
         signal: controller.signal,
       });
@@ -102,7 +82,6 @@ export default function AgentPage() {
       let agentText = "";
       let buffer = "";
 
-      // Add empty agent message
       setMessages((prev) => [...prev, { role: "agent", text: "" }]);
 
       while (true) {
@@ -122,7 +101,6 @@ export default function AgentPage() {
             const evt = JSON.parse(raw);
 
             if (evt.type === "agent.message") {
-              // Extract text from content blocks
               const content = evt.content || [];
               for (const block of content) {
                 if (block.type === "text" && block.text) {
@@ -136,36 +114,27 @@ export default function AgentPage() {
                   scrollToBottom();
                 }
               }
-            } else if (evt.type === "agent.message_delta") {
-              // Handle deltas
-              if (evt.delta?.text) {
-                agentText += evt.delta.text;
-                const captured = agentText;
-                setMessages((prev) => {
-                  const copy = [...prev];
-                  copy[copy.length - 1] = { role: "agent", text: captured };
-                  return copy;
-                });
-                scrollToBottom();
-              }
-            } else if (evt.type === "content_block_delta") {
-              if (evt.delta?.text) {
-                agentText += evt.delta.text;
-                const captured = agentText;
-                setMessages((prev) => {
-                  const copy = [...prev];
-                  copy[copy.length - 1] = { role: "agent", text: captured };
-                  return copy;
-                });
-                scrollToBottom();
-              }
-            } else if (evt.type === "session.status_idle") {
-              // Done
-              break;
+            } else if (evt.type === "agent.message_delta" && evt.delta?.text) {
+              agentText += evt.delta.text;
+              const captured = agentText;
+              setMessages((prev) => {
+                const copy = [...prev];
+                copy[copy.length - 1] = { role: "agent", text: captured };
+                return copy;
+              });
+              scrollToBottom();
+            } else if (evt.type === "content_block_delta" && evt.delta?.text) {
+              agentText += evt.delta.text;
+              const captured = agentText;
+              setMessages((prev) => {
+                const copy = [...prev];
+                copy[copy.length - 1] = { role: "agent", text: captured };
+                return copy;
+              });
+              scrollToBottom();
             }
-            // Ignore other event types
           } catch {
-            // skip unparseable lines
+            // skip unparseable
           }
         }
       }
@@ -193,22 +162,15 @@ export default function AgentPage() {
       if (!sid) return;
     }
 
-    const secret = await getAgentSecret();
-
     try {
       const { data, error } = await supabase.functions.invoke(
         "agent-session-send",
-        {
-          method: "POST",
-          headers: { "x-agent-secret": secret },
-          body: { session_id: sid, message: text },
-        }
+        { method: "POST", body: { session_id: sid, message: text } }
       );
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
-      // Start streaming the response
-      await startStream(sid, secret);
+      await startStream(sid);
     } catch (e) {
       console.error("Failed to send message:", e);
       toast.error("Failed to send message");
@@ -232,7 +194,6 @@ export default function AgentPage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-theme(spacing.16))]">
-      {/* Header */}
       <div className="flex items-center justify-between pb-4 border-b border-border">
         <div>
           <h1 className="text-xl font-semibold text-foreground">Agent</h1>
@@ -251,7 +212,6 @@ export default function AgentPage() {
         </Button>
       </div>
 
-      {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto py-4 space-y-4">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
@@ -278,11 +238,7 @@ export default function AgentPage() {
                   : "bg-muted text-muted-foreground"
               )}
             >
-              {msg.role === "user" ? (
-                <User size={16} />
-              ) : (
-                <Bot size={16} />
-              )}
+              {msg.role === "user" ? <User size={16} /> : <Bot size={16} />}
             </div>
             <div
               className={cn(
@@ -298,16 +254,8 @@ export default function AgentPage() {
             </div>
           </div>
         ))}
-
-        {isStreaming && messages.length > 0 && messages[messages.length - 1].text && (
-          <div className="flex gap-3 mr-auto max-w-[80%]">
-            <div className="w-8 h-8" />
-            <TypingDots />
-          </div>
-        )}
       </div>
 
-      {/* Input */}
       <div className="border-t border-border pt-4">
         <div className="flex gap-2">
           <Input
