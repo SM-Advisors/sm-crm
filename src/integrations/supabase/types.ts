@@ -702,6 +702,81 @@ export type Database = {
         }
         Relationships: []
       }
+      engagement_letter_services: {
+        Row: {
+          category_name: string
+          created_at: string
+          id: string
+          service_name: string
+          sort_order: number
+          template_url: string | null
+        }
+        Insert: {
+          category_name: string
+          created_at?: string
+          id?: string
+          service_name: string
+          sort_order?: number
+          template_url?: string | null
+        }
+        Update: {
+          category_name?: string
+          created_at?: string
+          id?: string
+          service_name?: string
+          sort_order?: number
+          template_url?: string | null
+        }
+        Relationships: []
+      }
+      engagement_letters: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          executed_url: string | null
+          id: string
+          notes: string | null
+          service_id: string | null
+          signed_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          executed_url?: string | null
+          id?: string
+          notes?: string | null
+          service_id?: string | null
+          signed_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          executed_url?: string | null
+          id?: string
+          notes?: string | null
+          service_id?: string | null
+          signed_date?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "engagement_letters_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engagement_letters_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "engagement_letter_services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       interactions: {
         Row: {
           company_id: string | null
