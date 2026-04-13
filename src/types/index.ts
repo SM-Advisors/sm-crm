@@ -372,6 +372,33 @@ export interface UserPreferences {
 }
 
 // ============================================================
+// ENGAGEMENT LETTERS
+// ============================================================
+
+export interface EngagementLetterService {
+  id: string;
+  category_name: string;
+  service_name: string;
+  template_url: string | null;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface EngagementLetter {
+  id: string;
+  company_id: string | null;
+  service_id: string | null;
+  executed_url: string | null;
+  signed_date: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joined
+  company?: Company | null;
+  service?: EngagementLetterService | null;
+}
+
+// ============================================================
 // UTILITY TYPES
 // ============================================================
 

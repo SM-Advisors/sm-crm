@@ -250,8 +250,8 @@ const INTEGRATION_META: Record<string, { label: string; description: string; sta
     label: "QuickBooks",
     description: "Invoices are imported from QuickBooks and matched to companies.",
   },
-  bd_agent: {
-    label: "BD Agent",
+  andrea_agent: {
+    label: "Andrea Agent",
     description: "Daily autonomous outreach run powered by Claude + Perplexity via n8n.",
   },
   perplexity: {
@@ -270,20 +270,29 @@ const INTEGRATION_META: Record<string, { label: string; description: string; sta
   },
 };
 
-function syncStatusBadge(status: string | null) {
+const STALE_SYNC_MINUTES = 10;
+
+function syncStatusBadge(status: string | null, updatedAt?: string) {
   if (!status || status === "never") {
-    return { icon: <Clock className="h-3 w-3" />, label: "Never run", cls: "bg-slate-100 text-slate-600 border-slate-200" };
+    return { icon: <Clock className="h-3 w-3" />, label: "Never run", cls: "bg-slate-100 text-slate-600 border-slate-200", stale: false };
   }
   if (status === "requested") {
-    return { icon: <Loader2 className="h-3 w-3 animate-spin" />, label: "Syncing…", cls: "bg-blue-100 text-blue-700 border-blue-200" };
+    // If the request was made more than STALE_SYNC_MINUTES ago with no callback, treat as stale
+    const isStale = updatedAt
+      ? (Date.now() - new Date(updatedAt).getTime()) > STALE_SYNC_MINUTES * 60 * 1000
+      : false;
+    if (isStale) {
+      return { icon: <AlertCircle className="h-3 w-3" />, label: "Timed out", cls: "bg-amber-100 text-amber-700 border-amber-200", stale: true };
+    }
+    return { icon: <Loader2 className="h-3 w-3 animate-spin" />, label: "Syncing…", cls: "bg-blue-100 text-blue-700 border-blue-200", stale: false };
   }
   if (status === "success") {
-    return { icon: <CheckCircle2 className="h-3 w-3" />, label: "Synced", cls: "bg-emerald-100 text-emerald-700 border-emerald-200" };
+    return { icon: <CheckCircle2 className="h-3 w-3" />, label: "Synced", cls: "bg-emerald-100 text-emerald-700 border-emerald-200", stale: false };
   }
   if (status === "error") {
-    return { icon: <AlertCircle className="h-3 w-3" />, label: "Error", cls: "bg-red-100 text-red-700 border-red-200" };
+    return { icon: <AlertCircle className="h-3 w-3" />, label: "Error", cls: "bg-red-100 text-red-700 border-red-200", stale: false };
   }
-  return { icon: <Clock className="h-3 w-3" />, label: status, cls: "bg-slate-100 text-slate-600 border-slate-200" };
+  return { icon: <Clock className="h-3 w-3" />, label: status, cls: "bg-slate-100 text-slate-600 border-slate-200", stale: false };
 }
 
 function IntegrationsSection() {
@@ -322,10 +331,12 @@ function IntegrationsSection() {
         }
 
         const row = syncMap[key];
-        const badge = syncStatusBadge(row?.last_sync_status ?? null);
+        const badge = syncStatusBadge(row?.last_sync_status ?? null, row?.updated_at);
         const lastRun = row?.last_sync_at
           ? formatDistanceToNow(new Date(row.last_sync_at), { addSuffix: true })
           : null;
+        // Disable sync button while actively syncing (but not if the request has gone stale)
+        const isSyncDisabled = manualSync.isPending || (row?.last_sync_status === "requested" && !badge.stale);
 
         return (
           <Card key={key}>
@@ -348,12 +359,17 @@ function IntegrationsSection() {
                 {row?.error_message && (
                   <p className="text-xs text-red-600 truncate">{row.error_message}</p>
                 )}
+                {badge.stale && (
+                  <p className="text-xs text-amber-600">
+                    Sync request timed out — n8n may not have responded. Try again.
+                  </p>
+                )}
               </div>
               <Button
                 variant="outline"
                 size="sm"
                 className="shrink-0 text-xs"
-                disabled={manualSync.isPending || row?.last_sync_status === "requested"}
+                disabled={isSyncDisabled}
                 onClick={() => handleSync(key)}
               >
                 <RefreshCcw className="h-3 w-3 mr-1" />
@@ -487,7 +503,7 @@ export default function SettingsPage() {
       <section>
         <div className="flex items-center gap-2 mb-4">
           <Bot className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-medium">BD Agent</h2>
+          <h2 className="text-lg font-medium">Andrea Agent</h2>
         </div>
         <AgentSettings />
       </section>

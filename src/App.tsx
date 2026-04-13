@@ -17,6 +17,7 @@ import InvoiceDetailPage from "./pages/InvoiceDetail";
 import ReportsPage from "./pages/Reports";
 import AgentLogPage from "./pages/AgentLog";
 import SettingsPage from "./pages/SettingsPage";
+import EngagementLettersPage from "./pages/EngagementLetters";
 import NotesPage from "./pages/Notes";
 import DealDetailPage from "./pages/DealDetail";
 import NotFound from "./pages/NotFound";
@@ -74,6 +75,7 @@ const App = () => (
             {/* Other */}
             <Route path="/reports" element={<ReportsPage />} />
             <Route path="/agent-log" element={<AgentLogPage />} />
+            <Route path="/engagement-letters" element={<EngagementLettersPage />} />
             <Route path="/settings" element={<SettingsPage />} />
 
             {/* Legacy short paths */}
