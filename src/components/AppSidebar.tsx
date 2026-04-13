@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Users, Building2, TrendingUp, Truck,
-  FileText, BarChart3, Bot, Settings, PanelLeftClose, PanelLeft,
-  StickyNote, Sparkles,
+  FileText, BarChart3, Settings, PanelLeftClose, PanelLeft,
+  StickyNote, ScrollText, Sparkles,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -9,17 +9,17 @@ import { cn } from "@/lib/utils";
 import { useState } from "react";
 
 const navItems = [
-  { title: "Dashboard",          url: "/dashboard",          icon: LayoutDashboard },
-  { title: "Contacts",           url: "/contacts",           icon: Users },
-  { title: "Companies",          url: "/companies",          icon: Building2 },
-  { title: "Sales Pipeline",     url: "/sales-pipeline",     icon: TrendingUp },
-  { title: "Delivery Pipeline",  url: "/delivery-pipeline",  icon: Truck },
-  { title: "Invoices",           url: "/invoices",           icon: FileText },
-  { title: "Reports",            url: "/reports",            icon: BarChart3 },
-  { title: "Notes",              url: "/notes",              icon: StickyNote },
-  { title: "Agent",              url: "/agent",              icon: Sparkles },
-  { title: "Agent Log",          url: "/agent-log",          icon: Bot },
-  { title: "Settings",           url: "/settings",           icon: Settings },
+  { title: "Dashboard",           url: "/dashboard",            icon: LayoutDashboard },
+  { title: "Contacts",            url: "/contacts",             icon: Users },
+  { title: "Companies",           url: "/companies",            icon: Building2 },
+  { title: "Sales Pipeline",      url: "/sales-pipeline",       icon: TrendingUp },
+  { title: "Delivery Pipeline",   url: "/delivery-pipeline",    icon: Truck },
+  { title: "Invoices",            url: "/invoices",             icon: FileText },
+  { title: "Reports",             url: "/reports",              icon: BarChart3 },
+  { title: "Notes",               url: "/notes",                icon: StickyNote },
+  { title: "Agent",               url: "/agent",                icon: Sparkles },
+  { title: "Engagement Letters",  url: "/engagement-letters",   icon: ScrollText },
+  { title: "Settings",            url: "/settings",             icon: Settings },
 ];
 
 export function AppSidebar() {
@@ -38,7 +38,6 @@ export function AppSidebar() {
         {!collapsed && (
           <div className="min-w-0">
             <div className="text-sm font-semibold text-sidebar-foreground truncate">SM Advisors</div>
-            <div className="text-xs text-sidebar-muted truncate">CRM + BD Agent</div>
           </div>
         )}
         <button
