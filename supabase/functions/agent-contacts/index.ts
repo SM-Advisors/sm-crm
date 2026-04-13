@@ -100,7 +100,7 @@ Deno.serve(async (req) => {
       id: c.id,
       full_name: [c.first_name, c.last_name].filter(Boolean).join(" "),
       email: c.email ?? null,
-      company_name: (c.company as { name: string } | null)?.name ?? null,
+      company_name: (c.company as unknown as { name: string } | null)?.name ?? null,
       last_activity_at: c.last_contacted_at ?? null,
       pipeline_stage: stageMap[c.id] ?? null,
     }));

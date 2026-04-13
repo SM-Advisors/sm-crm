@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Users, Building2, TrendingUp, Truck,
   FileText, BarChart3, Settings, PanelLeftClose, PanelLeft,
-  StickyNote, ScrollText,
+  StickyNote, ScrollText, Sparkles,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -17,6 +17,7 @@ const navItems = [
   { title: "Invoices",            url: "/invoices",             icon: FileText },
   { title: "Reports",             url: "/reports",              icon: BarChart3 },
   { title: "Notes",               url: "/notes",                icon: StickyNote },
+  { title: "Agent",               url: "/agent",                icon: Sparkles },
   { title: "Engagement Letters",  url: "/engagement-letters",   icon: ScrollText },
   { title: "Settings",            url: "/settings",             icon: Settings },
 ];
