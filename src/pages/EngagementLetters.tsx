@@ -46,28 +46,42 @@ interface ServiceRowProps {
 function ServiceRow({ service, onSave, onDelete }: ServiceRowProps) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(service.service_name);
+  const [desc, setDesc] = useState(service.description ?? "");
   const [url, setUrl] = useState(service.template_url ?? "");
+  const [expanded, setExpanded] = useState(false);
 
   function handleSave() {
-    onSave(service.id, { service_name: name.trim(), template_url: url.trim() || null });
+    onSave(service.id, {
+      service_name: name.trim(),
+      description: desc.trim() || null,
+      template_url: url.trim() || null,
+    });
     setEditing(false);
   }
 
   function handleCancel() {
     setName(service.service_name);
+    setDesc(service.description ?? "");
     setUrl(service.template_url ?? "");
     setEditing(false);
   }
 
   if (editing) {
     return (
-      <div className="flex items-center gap-2 py-1.5 pl-4">
-        <div className="flex flex-col gap-1 flex-1 min-w-0">
+      <div className="py-2 pl-4 pr-3">
+        <div className="flex flex-col gap-1.5 flex-1 min-w-0">
           <Input
             className="h-7 text-sm"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Service name"
+          />
+          <Textarea
+            className="text-sm min-h-[60px]"
+            value={desc}
+            onChange={(e) => setDesc(e.target.value)}
+            placeholder="Service description (used in proposals/engagement letters)"
+            rows={3}
           />
           <Input
             className="h-7 text-sm"
@@ -76,45 +90,62 @@ function ServiceRow({ service, onSave, onDelete }: ServiceRowProps) {
             placeholder="Template Google Drive URL (optional)"
           />
         </div>
-        <button onClick={handleSave} className="text-emerald-600 hover:text-emerald-700 shrink-0">
-          <Check size={15} />
-        </button>
-        <button onClick={handleCancel} className="text-muted-foreground hover:text-foreground shrink-0">
-          <X size={15} />
-        </button>
+        <div className="flex items-center gap-2 mt-2">
+          <button onClick={handleSave} className="text-emerald-600 hover:text-emerald-700 text-xs flex items-center gap-1">
+            <Check size={13} /> Save
+          </button>
+          <button onClick={handleCancel} className="text-muted-foreground hover:text-foreground text-xs flex items-center gap-1">
+            <X size={13} /> Cancel
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex items-center gap-2 py-1.5 pl-4 group">
-      <div className="flex-1 min-w-0">
-        <span className="text-sm">{service.service_name}</span>
+    <div className="py-2 pl-4 pr-3 group">
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="flex items-center gap-1.5 flex-1 min-w-0 text-left"
+        >
+          {service.description ? (
+            expanded ? <ChevronDown size={12} className="shrink-0 text-muted-foreground" /> : <ChevronRight size={12} className="shrink-0 text-muted-foreground" />
+          ) : (
+            <span className="w-3 shrink-0" />
+          )}
+          <span className="text-sm">{service.service_name}</span>
+        </button>
         {service.template_url && (
           <a
             href={service.template_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="ml-2 text-xs text-blue-600 hover:underline inline-flex items-center gap-0.5"
+            className="text-xs text-blue-600 hover:underline inline-flex items-center gap-0.5 shrink-0"
           >
             Template <ExternalLink size={10} />
           </a>
         )}
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+          <button
+            onClick={() => setEditing(true)}
+            className="p-1 text-muted-foreground hover:text-foreground"
+          >
+            <Pencil size={12} />
+          </button>
+          <button
+            onClick={() => onDelete(service.id)}
+            className="p-1 text-muted-foreground hover:text-red-600"
+          >
+            <Trash2 size={12} />
+          </button>
+        </div>
       </div>
-      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button
-          onClick={() => setEditing(true)}
-          className="p-1 text-muted-foreground hover:text-foreground"
-        >
-          <Pencil size={12} />
-        </button>
-        <button
-          onClick={() => onDelete(service.id)}
-          className="p-1 text-muted-foreground hover:text-red-600"
-        >
-          <Trash2 size={12} />
-        </button>
-      </div>
+      {expanded && service.description && (
+        <p className="text-xs text-muted-foreground mt-1.5 ml-[18px] whitespace-pre-line leading-relaxed">
+          {service.description}
+        </p>
+      )}
     </div>
   );
 }
@@ -124,7 +155,7 @@ interface CategorySectionProps {
   services: EngagementLetterService[];
   onSaveService: (id: string, updates: Partial<EngagementLetterService>) => void;
   onDeleteService: (id: string) => void;
-  onAddService: (categoryName: string, serviceName: string) => void;
+  onAddService: (categoryName: string, serviceName: string, description: string) => void;
   onRenameCategory: (oldName: string, newName: string) => void;
 }
 
@@ -139,13 +170,15 @@ function CategorySection({
   const [expanded, setExpanded] = useState(true);
   const [addingService, setAddingService] = useState(false);
   const [newServiceName, setNewServiceName] = useState("");
+  const [newServiceDesc, setNewServiceDesc] = useState("");
   const [renamingCategory, setRenamingCategory] = useState(false);
   const [catName, setCatName] = useState(categoryName);
 
   function handleAddService() {
     if (!newServiceName.trim()) return;
-    onAddService(categoryName, newServiceName.trim());
+    onAddService(categoryName, newServiceName.trim(), newServiceDesc.trim());
     setNewServiceName("");
+    setNewServiceDesc("");
     setAddingService(false);
   }
 
@@ -220,24 +253,31 @@ function CategorySection({
 
           {/* Add service inline */}
           {addingService ? (
-            <div className="flex items-center gap-2 py-1.5 pl-4 pr-3">
-              <Input
-                className="h-7 text-sm flex-1"
-                placeholder="New service name"
-                value={newServiceName}
-                onChange={(e) => setNewServiceName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleAddService();
-                  if (e.key === "Escape") { setAddingService(false); setNewServiceName(""); }
-                }}
-                autoFocus
-              />
-              <button onClick={handleAddService} className="text-emerald-600 hover:text-emerald-700">
-                <Check size={15} />
-              </button>
-              <button onClick={() => { setAddingService(false); setNewServiceName(""); }} className="text-muted-foreground hover:text-foreground">
-                <X size={15} />
-              </button>
+            <div className="py-2 pl-4 pr-3">
+              <div className="flex flex-col gap-1.5">
+                <Input
+                  className="h-7 text-sm"
+                  placeholder="New service name"
+                  value={newServiceName}
+                  onChange={(e) => setNewServiceName(e.target.value)}
+                  autoFocus
+                />
+                <Textarea
+                  className="text-sm min-h-[50px]"
+                  placeholder="Service description (for proposals/engagement letters)"
+                  value={newServiceDesc}
+                  onChange={(e) => setNewServiceDesc(e.target.value)}
+                  rows={2}
+                />
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <button onClick={handleAddService} className="text-emerald-600 hover:text-emerald-700 text-xs flex items-center gap-1">
+                  <Check size={13} /> Add
+                </button>
+                <button onClick={() => { setAddingService(false); setNewServiceName(""); setNewServiceDesc(""); }} className="text-muted-foreground hover:text-foreground text-xs flex items-center gap-1">
+                  <X size={13} /> Cancel
+                </button>
+              </div>
             </div>
           ) : (
             <button
@@ -447,11 +487,11 @@ export default function EngagementLettersPage() {
     });
   }
 
-  function handleAddService(categoryName: string, serviceName: string) {
+  function handleAddService(categoryName: string, serviceName: string, description: string) {
     const maxOrder = services.filter((s) => s.category_name === categoryName)
       .reduce((m, s) => Math.max(m, s.sort_order), 0);
     createService.mutate(
-      { category_name: categoryName, service_name: serviceName, template_url: null, sort_order: maxOrder + 1 },
+      { category_name: categoryName, service_name: serviceName, description: description || null, template_url: null, sort_order: maxOrder + 1 },
       {
         onSuccess: () => toast.success("Service added"),
         onError: () => toast.error("Failed to add service"),
@@ -481,7 +521,7 @@ export default function EngagementLettersPage() {
   function handleAddCategory() {
     if (!addCategoryName.trim()) return;
     createService.mutate(
-      { category_name: addCategoryName.trim(), service_name: "New service", template_url: null, sort_order: services.length + 1 },
+      { category_name: addCategoryName.trim(), service_name: "New service", description: null, template_url: null, sort_order: services.length + 1 },
       {
         onSuccess: () => {
           toast.success("Category added");

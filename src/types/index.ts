@@ -379,6 +379,7 @@ export interface EngagementLetterService {
   id: string;
   category_name: string;
   service_name: string;
+  description: string | null;
   template_url: string | null;
   sort_order: number;
   created_at: string;
