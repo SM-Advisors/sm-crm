@@ -767,7 +767,7 @@ export default function ContactsPage() {
     try {
       await supabase.from("contact_categories").delete().eq("contact_id", contactId);
       if (category) {
-        await supabase.from("contact_categories").insert({ contact_id: contactId, category });
+        await supabase.from("contact_categories").insert({ contact_id: contactId, category: category as ContactCategory });
       }
       qc.invalidateQueries({ queryKey: ["contacts"] });
       toast.success("Category updated");

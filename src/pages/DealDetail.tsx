@@ -653,7 +653,7 @@ export default function DealDetailPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
                 <Label>Stage</Label>
-                <Select value={editForm.stage} onValueChange={(v) => setEditForm((f) => ({ ...f, stage: v }))}>
+                <Select value={editForm.stage} onValueChange={(v) => setEditForm((f) => ({ ...f, stage: v as SalesStage }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {Object.entries(SALES_STAGE_LABELS).map(([k, v]) => (
