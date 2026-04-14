@@ -1,7 +1,7 @@
 import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, parseISO, differenceInDays } from "date-fns";
-import { UserPlus, CheckCircle2, Circle, Mail, ExternalLink, Snowflake } from "lucide-react";
+import { UserPlus, CheckCircle2, Circle, Mail, ExternalLink, Snowflake, ChevronsUpDown, Check, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type DataTableColumn } from "@/components/DataTable";
@@ -22,10 +22,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from "@/components/ui/command";
 import { useQueryClient } from "@tanstack/react-query";
 import { useContacts, useCreateContact, useDeleteContact, useUpdateContact, useMarkContactReviewed, useBulkMarkContactsReviewed, useToggleContactCold } from "@/hooks/useContacts";
 import { supabase } from "@/lib/supabase";
-import { useCompanies } from "@/hooks/useCompanies";
+import { useCompanies, useCreateCompany } from "@/hooks/useCompanies";
 import type { Contact, ContactCategory } from "@/types";
 import { INTERACTION_TYPE_LABELS, CATEGORY_LABELS } from "@/types";
 import { toast } from "sonner";
@@ -230,6 +244,117 @@ function InlineEditSelect({
   );
 }
 
+function InlineCompanySelect({
+  value,
+  companies,
+  onSave,
+  onCreateCompany,
+}: {
+  value: string;
+  companies: { id: string; name: string }[];
+  onSave: (companyId: string) => void;
+  onCreateCompany: (name: string) => Promise<string>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const selected = companies.find((c) => c.id === value);
+
+  async function handleCreate() {
+    const trimmed = newName.trim();
+    if (!trimmed) return;
+    setSubmitting(true);
+    try {
+      const newId = await onCreateCompany(trimmed);
+      onSave(newId);
+      setOpen(false);
+      setCreating(false);
+      setNewName("");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (creating) {
+    return (
+      <div className="flex items-center gap-1">
+        <Input
+          ref={inputRef}
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          placeholder="Company name…"
+          className="h-7 text-sm w-40"
+          autoFocus
+          onKeyDown={(e) => {
+            if (e.key === "Enter") { e.preventDefault(); handleCreate(); }
+            if (e.key === "Escape") { setCreating(false); setNewName(""); }
+          }}
+          disabled={submitting}
+        />
+        <Button size="sm" variant="default" className="h-7 px-2 text-xs" onClick={handleCreate} disabled={submitting || !newName.trim()}>
+          Add
+        </Button>
+        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => { setCreating(false); setNewName(""); }}>
+          Cancel
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          className="cursor-pointer hover:bg-muted/60 rounded px-1 -mx-1 py-0.5 inline-flex items-center gap-1"
+          title="Click to change company"
+        >
+          <span className="text-sm">{selected?.name ?? <span className="text-muted-foreground">—</span>}</span>
+          <ChevronsUpDown className="h-3 w-3 text-muted-foreground opacity-0 group-hover/row:opacity-100" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-56 p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Search companies…" />
+          <CommandList>
+            <CommandEmpty>No companies found.</CommandEmpty>
+            <CommandGroup>
+              <CommandItem
+                value="__none__"
+                onSelect={() => { onSave(""); setOpen(false); }}
+              >
+                <span className="text-muted-foreground">None</span>
+                {!value && <Check className="ml-auto h-3.5 w-3.5" />}
+              </CommandItem>
+              {companies.map((c) => (
+                <CommandItem
+                  key={c.id}
+                  value={c.name}
+                  onSelect={() => { onSave(c.id); setOpen(false); }}
+                >
+                  {c.name}
+                  {c.id === value && <Check className="ml-auto h-3.5 w-3.5" />}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+            <CommandSeparator />
+            <CommandGroup>
+              <CommandItem
+                onSelect={() => { setOpen(false); setCreating(true); }}
+              >
+                <Plus className="h-3.5 w-3.5 mr-2" />
+                Create new company…
+              </CommandItem>
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 // ─── Column definitions ───────────────────────────────────────────────────────
 
 const categoryOptions = [
@@ -256,6 +381,7 @@ interface ColumnHandlers {
   onUpdateContact: (id: string, updates: Record<string, unknown>) => void;
   onSetCategory: (contactId: string, category: string) => void;
   onToggleCold: (id: string, isCold: boolean) => void;
+  onCreateCompany: (name: string) => Promise<string>;
   companies: { id: string; name: string }[];
   showColdColumn: boolean;
 }
@@ -348,14 +474,11 @@ function buildColumns(h: ColumnHandlers): DataTableColumn<Contact>[] {
       accessorFn: (row) => (row as any).company?.name ?? "",
       filterMeta: { type: "text" },
       cell: ({ row }) => (
-        <InlineEditSelect
+        <InlineCompanySelect
           value={row.original.company_id ?? ""}
-          options={h.companies.map((c) => ({ label: c.name, value: c.id }))}
+          companies={h.companies}
           onSave={(v) => h.onUpdateContact(row.original.id, { company_id: v || null })}
-          renderValue={() => {
-            const co = (row.original as any).company;
-            return co ? <span className="text-sm">{co.name}</span> : null;
-          }}
+          onCreateCompany={h.onCreateCompany}
         />
       ),
     },
@@ -732,6 +855,7 @@ export default function ContactsPage() {
   const [reviewFilter, setReviewFilter] = useState<ReviewFilter>("not_reviewed");
   const deleteContact = useDeleteContact();
   const updateContact = useUpdateContact();
+  const createCompany = useCreateCompany();
   const markReviewed = useMarkContactReviewed();
   const bulkMarkReviewed = useBulkMarkContactsReviewed();
   const toggleCold = useToggleContactCold();
@@ -776,9 +900,15 @@ export default function ContactsPage() {
     }
   }, [qc]);
 
+  const handleCreateCompany = useCallback(async (name: string): Promise<string> => {
+    const result = await createCompany.mutateAsync({ name });
+    toast.success(`Company "${name}" created`);
+    return (result as { id: string }).id;
+  }, [createCompany]);
+
   const columns = useMemo(
-    () => buildColumns({ navigate, onMarkReviewed: handleMarkReviewed, onUpdateContact: handleUpdateContact, onSetCategory: handleSetCategory, onToggleCold: handleToggleCold, companies, showColdColumn: reviewFilter === "cold" }),
-    [navigate, handleMarkReviewed, handleUpdateContact, handleSetCategory, handleToggleCold, companies, reviewFilter]
+    () => buildColumns({ navigate, onMarkReviewed: handleMarkReviewed, onUpdateContact: handleUpdateContact, onSetCategory: handleSetCategory, onToggleCold: handleToggleCold, onCreateCompany: handleCreateCompany, companies, showColdColumn: reviewFilter === "cold" }),
+    [navigate, handleMarkReviewed, handleUpdateContact, handleSetCategory, handleToggleCold, handleCreateCompany, companies, reviewFilter]
   );
 
   // Split contacts into active (non-cold) and cold
