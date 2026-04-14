@@ -139,6 +139,34 @@ export function useDeleteContact() {
   });
 }
 
+export function useMarkContactReviewed() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (contactId: string) => {
+      const { error } = await supabase
+        .from("contacts")
+        .update({ reviewed_at: new Date().toISOString() })
+        .eq("id", contactId);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["contacts"] }),
+  });
+}
+
+export function useBulkMarkContactsReviewed() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (contactIds: string[]) => {
+      const { error } = await supabase
+        .from("contacts")
+        .update({ reviewed_at: new Date().toISOString() })
+        .in("id", contactIds);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["contacts"] }),
+  });
+}
+
 export function useAddContactCategory() {
   const qc = useQueryClient();
   return useMutation({

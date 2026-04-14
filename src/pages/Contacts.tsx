@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { format, parseISO } from "date-fns";
-import { UserPlus } from "lucide-react";
+import { format, parseISO, differenceInDays } from "date-fns";
+import { UserPlus, CheckCircle2, Circle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type DataTableColumn } from "@/components/DataTable";
@@ -22,11 +22,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useContacts, useCreateContact, useDeleteContact } from "@/hooks/useContacts";
+import { useContacts, useCreateContact, useDeleteContact, useMarkContactReviewed, useBulkMarkContactsReviewed } from "@/hooks/useContacts";
 import { useCompanies } from "@/hooks/useCompanies";
 import type { Contact, ContactCategory } from "@/types";
 import { INTERACTION_TYPE_LABELS, CATEGORY_LABELS } from "@/types";
 import { toast } from "sonner";
+
+const REVIEW_EXPIRY_DAYS = 30;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -42,6 +44,13 @@ function formatDate(iso?: string | null) {
 function fullName(c: Contact) {
   return [c.first_name, c.last_name].filter(Boolean).join(" ");
 }
+
+function isReviewedActive(reviewedAt: string | null | undefined): boolean {
+  if (!reviewedAt) return false;
+  return differenceInDays(new Date(), new Date(reviewedAt)) < REVIEW_EXPIRY_DAYS;
+}
+
+type ReviewFilter = "all" | "not_reviewed" | "reviewed";
 
 // ─── Column definitions ───────────────────────────────────────────────────────
 
@@ -64,8 +73,40 @@ const interactionTypeOptions = [
   { label: "Agent Outreach", value: "agent_outreach" },
 ];
 
-function buildColumns(navigate: ReturnType<typeof useNavigate>): DataTableColumn<Contact>[] {
+function buildColumns(
+  navigate: ReturnType<typeof useNavigate>,
+  onMarkReviewed: (id: string) => void,
+): DataTableColumn<Contact>[] {
   return [
+    {
+      id: "reviewed",
+      header: "Reviewed",
+      size: 80,
+      enableSorting: false,
+      accessorFn: (row) => isReviewedActive(row.reviewed_at) ? "yes" : "no",
+      cell: ({ row }) => {
+        const active = isReviewedActive(row.original.reviewed_at);
+        if (active) {
+          const daysAgo = differenceInDays(new Date(), new Date(row.original.reviewed_at!));
+          const daysLeft = REVIEW_EXPIRY_DAYS - daysAgo;
+          return (
+            <span className="flex items-center gap-1 text-emerald-600" title={`Reviewed — expires in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}`}>
+              <CheckCircle2 size={15} />
+              <span className="text-xs">{daysLeft}d</span>
+            </span>
+          );
+        }
+        return (
+          <button
+            onClick={(e) => { e.stopPropagation(); onMarkReviewed(row.original.id); }}
+            className="text-muted-foreground hover:text-emerald-600 transition-colors"
+            title="Mark as reviewed"
+          >
+            <Circle size={15} />
+          </button>
+        );
+      },
+    },
     {
       id: "name",
       header: "Name",
@@ -439,18 +480,47 @@ function AlphabetBar({ active, onChange }: { active: string | null; onChange: (l
 export default function ContactsPage() {
   const navigate = useNavigate();
   const { data: contacts = [], isLoading } = useContacts();
-  const columns = useMemo(() => buildColumns(navigate), [navigate]);
   const [createOpen, setCreateOpen] = useState(false);
   const [letterFilter, setLetterFilter] = useState<string | null>(null);
+  const [reviewFilter, setReviewFilter] = useState<ReviewFilter>("not_reviewed");
   const deleteContact = useDeleteContact();
+  const markReviewed = useMarkContactReviewed();
+  const bulkMarkReviewed = useBulkMarkContactsReviewed();
+
+  const handleMarkReviewed = useCallback((id: string) => {
+    markReviewed.mutate(id, {
+      onSuccess: () => toast.success("Contact marked as reviewed for 30 days"),
+      onError: () => toast.error("Failed to mark as reviewed"),
+    });
+  }, [markReviewed]);
+
+  const columns = useMemo(() => buildColumns(navigate, handleMarkReviewed), [navigate, handleMarkReviewed]);
 
   const filtered = useMemo(() => {
-    if (!letterFilter) return contacts;
-    return contacts.filter((c) => {
-      const name = (c.last_name || c.first_name || "").toUpperCase();
-      return name.startsWith(letterFilter);
-    });
-  }, [contacts, letterFilter]);
+    let result = contacts;
+
+    // Review filter
+    if (reviewFilter === "reviewed") {
+      result = result.filter((c) => isReviewedActive(c.reviewed_at));
+    } else if (reviewFilter === "not_reviewed") {
+      result = result.filter((c) => !isReviewedActive(c.reviewed_at));
+    }
+
+    // Alphabet filter
+    if (letterFilter) {
+      result = result.filter((c) => {
+        const name = (c.last_name || c.first_name || "").toUpperCase();
+        return name.startsWith(letterFilter);
+      });
+    }
+
+    return result;
+  }, [contacts, letterFilter, reviewFilter]);
+
+  const reviewedCount = useMemo(
+    () => contacts.filter((c) => isReviewedActive(c.reviewed_at)).length,
+    [contacts]
+  );
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -473,6 +543,48 @@ export default function ContactsPage() {
         </div>
       ) : (
         <>
+          {/* Review filter tabs */}
+          <div className="flex items-center gap-4">
+            <div className="flex gap-1 bg-muted rounded-lg p-0.5">
+              {([
+                { key: "not_reviewed" as const, label: "Not Reviewed", count: contacts.length - reviewedCount },
+                { key: "reviewed" as const, label: "Reviewed", count: reviewedCount },
+                { key: "all" as const, label: "All", count: contacts.length },
+              ]).map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setReviewFilter(tab.key)}
+                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                    reviewFilter === tab.key
+                      ? "bg-background text-foreground shadow-sm font-medium"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {tab.label}
+                  <span className="ml-1.5 text-xs text-muted-foreground">{tab.count}</span>
+                </button>
+              ))}
+            </div>
+            {reviewFilter === "not_reviewed" && filtered.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs gap-1.5"
+                disabled={bulkMarkReviewed.isPending}
+                onClick={() => {
+                  const ids = filtered.map((c) => c.id);
+                  bulkMarkReviewed.mutate(ids, {
+                    onSuccess: () => toast.success(`${ids.length} contact(s) marked as reviewed`),
+                    onError: () => toast.error("Failed to mark contacts as reviewed"),
+                  });
+                }}
+              >
+                <CheckCircle2 size={13} />
+                Mark all visible as reviewed
+              </Button>
+            )}
+          </div>
+
           <AlphabetBar active={letterFilter} onChange={setLetterFilter} />
           <DataTable
             data={filtered}
