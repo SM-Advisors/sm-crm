@@ -256,6 +256,7 @@ export function DataTable<T>({
     filterFns: { fuzzy: fuzzyFilter },
     globalFilterFn: fuzzyFilter as FilterFn<unknown>,
     state: { sorting, columnFilters, globalFilter, pagination, rowSelection },
+    autoResetPageIndex: false,
     enableRowSelection: !!onBulkDelete,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
