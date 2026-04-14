@@ -167,6 +167,20 @@ export function useBulkMarkContactsReviewed() {
   });
 }
 
+export function useToggleContactCold() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ contactId, isCold }: { contactId: string; isCold: boolean }) => {
+      const { error } = await supabase
+        .from("contacts")
+        .update({ is_cold: isCold })
+        .eq("id", contactId);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["contacts"] }),
+  });
+}
+
 export function useAddContactCategory() {
   const qc = useQueryClient();
   return useMutation({
