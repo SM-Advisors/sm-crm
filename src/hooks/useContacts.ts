@@ -103,7 +103,11 @@ export function useCreateContact() {
       }
       return data;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["contacts"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["contacts"] });
+      qc.invalidateQueries({ queryKey: ["companies"] });
+      qc.invalidateQueries({ queryKey: ["company"], exact: false });
+    },
   });
 }
 
@@ -124,6 +128,9 @@ export function useUpdateContact() {
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ["contacts"] });
       qc.invalidateQueries({ queryKey: ["contact", vars.id] });
+      // When company_id changes, the old and new company pages need refreshing
+      qc.invalidateQueries({ queryKey: ["companies"] });
+      qc.invalidateQueries({ queryKey: ["company"], exact: false });
     },
   });
 }
@@ -135,7 +142,11 @@ export function useDeleteContact() {
       const { error } = await supabase.from("contacts").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["contacts"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["contacts"] });
+      qc.invalidateQueries({ queryKey: ["companies"] });
+      qc.invalidateQueries({ queryKey: ["company"], exact: false });
+    },
   });
 }
 
