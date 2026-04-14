@@ -183,6 +183,8 @@ interface DataTableProps<T> {
   onBulkDelete?: (ids: string[]) => void;
   /** Accessor to get the row ID for bulk operations. Defaults to (row as any).id */
   getRowId?: (row: T) => string;
+  /** Default page size. Defaults to 25. */
+  defaultPageSize?: number;
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -196,11 +198,12 @@ export function DataTable<T>({
   actions,
   onBulkDelete,
   getRowId,
+  defaultPageSize = 25,
 }: DataTableProps<T>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
-  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 25 });
+  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: defaultPageSize });
   const [showColumnFilters, setShowColumnFilters] = useState(false);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
@@ -354,6 +357,64 @@ export function DataTable<T>({
             </button>
           </PopoverContent>
         </Popover>
+      </div>
+
+      {/* ── Top pagination controls ── */}
+      <div className="flex items-center gap-3 text-sm text-muted-foreground">
+        <div className="flex items-center gap-2">
+          <span>Show</span>
+          <Select
+            value={String(pagination.pageSize)}
+            onValueChange={(v) =>
+              setPagination((p) => ({ ...p, pageSize: Number(v), pageIndex: 0 }))
+            }
+          >
+            <SelectTrigger className="h-8 w-[70px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {[25, 50, 100, 200].map((n) => (
+                <SelectItem key={n} value={String(n)}>
+                  {n}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <span>per page</span>
+        </div>
+
+        <div className="flex-1" />
+
+        <span>
+          {table.getFilteredRowModel().rows.length === 0
+            ? "0 rows"
+            : `${pagination.pageIndex * pagination.pageSize + 1}–${Math.min(
+                (pagination.pageIndex + 1) * pagination.pageSize,
+                table.getFilteredRowModel().rows.length
+              )} of ${table.getFilteredRowModel().rows.length}`}
+        </span>
+
+        {table.getPageCount() > 1 && (
+          <div className="flex items-center gap-1">
+            <span>Page</span>
+            <Select
+              value={String(pagination.pageIndex)}
+              onValueChange={(v) => setPagination((p) => ({ ...p, pageIndex: Number(v) }))}
+            >
+              <SelectTrigger className="h-8 w-[70px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: table.getPageCount() }, (_, i) => (
+                  <SelectItem key={i} value={String(i)}>
+                    {i + 1}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span>of {table.getPageCount()}</span>
+          </div>
+        )}
       </div>
 
       {/* ── Bulk action bar ── */}

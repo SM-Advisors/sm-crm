@@ -888,6 +888,7 @@ export default function ContactsPage() {
             exportName="contacts"
             toExportRow={toExportRow}
             searchPlaceholder="Search contacts…"
+            defaultPageSize={100}
             onBulkDelete={(ids) => {
               Promise.all(ids.map((id) => deleteContact.mutateAsync(id)))
                 .then(() => toast.success(`${ids.length} contact(s) deleted`))
