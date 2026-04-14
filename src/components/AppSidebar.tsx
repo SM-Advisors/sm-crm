@@ -1,5 +1,5 @@
 import {
-  LayoutDashboard, Users, Building2, TrendingUp, Truck,
+  LayoutDashboard, Users, Building2, TrendingUp,
   FileText, BarChart3, Settings, PanelLeftClose, PanelLeft,
   StickyNote, ScrollText, Sparkles,
 } from "lucide-react";
@@ -12,8 +12,7 @@ const navItems = [
   { title: "Dashboard",           url: "/dashboard",            icon: LayoutDashboard },
   { title: "Contacts",            url: "/contacts",             icon: Users },
   { title: "Companies",           url: "/companies",            icon: Building2 },
-  { title: "Sales Pipeline",      url: "/sales-pipeline",       icon: TrendingUp },
-  { title: "Delivery Pipeline",   url: "/delivery-pipeline",    icon: Truck },
+  { title: "Pipeline",             url: "/pipeline",             icon: TrendingUp },
   { title: "Invoices",            url: "/invoices",             icon: FileText },
   { title: "Reports",             url: "/reports",              icon: BarChart3 },
   { title: "Notes",               url: "/notes",                icon: StickyNote },

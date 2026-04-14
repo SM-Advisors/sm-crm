@@ -10,8 +10,7 @@ import ContactsPage from "./pages/Contacts";
 import ContactDetailPage from "./pages/ContactDetail";
 import CompaniesPage from "./pages/Companies";
 import CompanyDetailPage from "./pages/CompanyDetail";
-import SalesPipelinePage from "./pages/SalesPipeline";
-import DeliveryPipelinePage from "./pages/DeliveryPipeline";
+import PipelinePage from "./pages/Pipeline";
 import InvoicesPage from "./pages/Invoices";
 import InvoiceDetailPage from "./pages/InvoiceDetail";
 import ReportsPage from "./pages/Reports";
@@ -61,9 +60,10 @@ const App = () => (
             <Route path="/companies/:id" element={<CompanyDetailPage />} />
 
             {/* Pipelines */}
-            <Route path="/sales-pipeline" element={<SalesPipelinePage />} />
+            <Route path="/pipeline" element={<PipelinePage />} />
+            <Route path="/sales-pipeline" element={<Navigate to="/pipeline" replace />} />
+            <Route path="/delivery-pipeline" element={<Navigate to="/pipeline" replace />} />
             <Route path="/sales-deals/:id" element={<DealDetailPage />} />
-            <Route path="/delivery-pipeline" element={<DeliveryPipelinePage />} />
 
             {/* Invoices */}
             <Route path="/invoices" element={<InvoicesPage />} />
@@ -81,8 +81,8 @@ const App = () => (
             <Route path="/settings" element={<SettingsPage />} />
 
             {/* Legacy short paths */}
-            <Route path="/sales" element={<Navigate to="/sales-pipeline" replace />} />
-            <Route path="/delivery" element={<Navigate to="/delivery-pipeline" replace />} />
+            <Route path="/sales" element={<Navigate to="/pipeline" replace />} />
+            <Route path="/delivery" element={<Navigate to="/pipeline" replace />} />
             <Route path="/agent" element={<Navigate to="/agent-log" replace />} />
           </Route>
 
