@@ -430,6 +430,7 @@ export type Database = {
           phone: string | null
           qb_contact_id: string | null
           referral_source: string | null
+          reviewed_at: string | null
           source: string | null
           state: string | null
           title: string | null
@@ -457,6 +458,7 @@ export type Database = {
           phone?: string | null
           qb_contact_id?: string | null
           referral_source?: string | null
+          reviewed_at?: string | null
           source?: string | null
           state?: string | null
           title?: string | null
@@ -484,6 +486,7 @@ export type Database = {
           phone?: string | null
           qb_contact_id?: string | null
           referral_source?: string | null
+          reviewed_at?: string | null
           source?: string | null
           state?: string | null
           title?: string | null
@@ -706,6 +709,7 @@ export type Database = {
         Row: {
           category_name: string
           created_at: string
+          description: string | null
           id: string
           service_name: string
           sort_order: number
@@ -714,6 +718,7 @@ export type Database = {
         Insert: {
           category_name: string
           created_at?: string
+          description?: string | null
           id?: string
           service_name: string
           sort_order?: number
@@ -722,6 +727,7 @@ export type Database = {
         Update: {
           category_name?: string
           created_at?: string
+          description?: string | null
           id?: string
           service_name?: string
           sort_order?: number
