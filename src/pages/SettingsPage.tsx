@@ -8,11 +8,11 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { useAgentConfig, useUpdateAgentConfig } from "@/hooks/useAgent";
-import { useSyncStatus, useManualSync } from "@/hooks/useSyncStatus";
+import { useSyncStatus } from "@/hooks/useSyncStatus";
 import { useChangeLog } from "@/hooks/useChangeLog";
 import { toast } from "sonner";
-import { Bot, Zap, RefreshCcw, Bell, AlertCircle, CheckCircle2, Clock, Loader2, History } from "lucide-react";
-import { formatDistanceToNow, parseISO } from "date-fns";
+import { Bot, Zap, RefreshCcw, Bell, History } from "lucide-react";
+import { format, formatDistanceToNow, parseISO } from "date-fns";
 
 // ─── Agent config section ─────────────────────────────────────────────────────
 
@@ -270,43 +270,10 @@ const INTEGRATION_META: Record<string, { label: string; description: string; sta
   },
 };
 
-const STALE_SYNC_MINUTES = 10;
-
-function syncStatusBadge(status: string | null, updatedAt?: string) {
-  if (!status || status === "never") {
-    return { icon: <Clock className="h-3 w-3" />, label: "Never run", cls: "bg-slate-100 text-slate-600 border-slate-200", stale: false };
-  }
-  if (status === "requested") {
-    // If the request was made more than STALE_SYNC_MINUTES ago with no callback, treat as stale
-    const isStale = updatedAt
-      ? (Date.now() - new Date(updatedAt).getTime()) > STALE_SYNC_MINUTES * 60 * 1000
-      : false;
-    if (isStale) {
-      return { icon: <AlertCircle className="h-3 w-3" />, label: "Timed out", cls: "bg-amber-100 text-amber-700 border-amber-200", stale: true };
-    }
-    return { icon: <Loader2 className="h-3 w-3 animate-spin" />, label: "Syncing…", cls: "bg-blue-100 text-blue-700 border-blue-200", stale: false };
-  }
-  if (status === "success") {
-    return { icon: <CheckCircle2 className="h-3 w-3" />, label: "Synced", cls: "bg-emerald-100 text-emerald-700 border-emerald-200", stale: false };
-  }
-  if (status === "error") {
-    return { icon: <AlertCircle className="h-3 w-3" />, label: "Error", cls: "bg-red-100 text-red-700 border-red-200", stale: false };
-  }
-  return { icon: <Clock className="h-3 w-3" />, label: status, cls: "bg-slate-100 text-slate-600 border-slate-200", stale: false };
-}
-
 function IntegrationsSection() {
   const { data: syncRows = [], isLoading } = useSyncStatus();
-  const manualSync = useManualSync();
 
   const syncMap = Object.fromEntries(syncRows.map((r) => [r.service, r]));
-
-  function handleSync(service: string) {
-    manualSync.mutate(service, {
-      onSuccess: () => toast.success(`Sync requested for ${INTEGRATION_META[service]?.label ?? service}`),
-      onError: () => toast.error("Failed to request sync"),
-    });
-  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -331,50 +298,29 @@ function IntegrationsSection() {
         }
 
         const row = syncMap[key];
-        const badge = syncStatusBadge(row?.last_sync_status ?? null, row?.updated_at);
-        const lastRun = row?.last_sync_at
-          ? formatDistanceToNow(new Date(row.last_sync_at), { addSuffix: true })
-          : null;
-        // Disable sync button while actively syncing (but not if the request has gone stale)
-        const isSyncDisabled = manualSync.isPending || (row?.last_sync_status === "requested" && !badge.stale);
+        const lastSuccessful = row?.last_sync_status === "success" ? row.last_sync_at : null;
 
         return (
           <Card key={key}>
-            <CardContent className="pt-4 flex items-start justify-between gap-4">
-              <div className="flex flex-col gap-1.5 flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium">{meta.label}</p>
-                  <Badge variant="outline" className={`text-xs flex items-center gap-1 ${badge.cls}`}>
-                    {badge.icon}
-                    {badge.label}
-                  </Badge>
-                </div>
-                <p className="text-xs text-muted-foreground">{meta.description}</p>
-                {lastRun && (
-                  <p className="text-xs text-muted-foreground">
-                    Last sync: {lastRun}
-                    {row?.records_synced != null && ` — ${row.records_synced} records`}
-                  </p>
-                )}
-                {row?.error_message && (
-                  <p className="text-xs text-red-600 truncate">{row.error_message}</p>
-                )}
-                {badge.stale && (
-                  <p className="text-xs text-amber-600">
-                    Sync request timed out — n8n may not have responded. Try again.
-                  </p>
-                )}
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="shrink-0 text-xs"
-                disabled={isSyncDisabled}
-                onClick={() => handleSync(key)}
-              >
-                <RefreshCcw className="h-3 w-3 mr-1" />
-                Sync now
-              </Button>
+            <CardContent className="pt-4 flex flex-col gap-1.5">
+              <p className="text-sm font-medium">{meta.label}</p>
+              <p className="text-xs text-muted-foreground">{meta.description}</p>
+              {lastSuccessful ? (
+                <p className="text-xs text-muted-foreground">
+                  Last successful sync: {format(parseISO(lastSuccessful), "MMM d, yyyy 'at' h:mm a")}
+                  {row?.records_synced != null && ` — ${row.records_synced} records`}
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">No successful sync recorded.</p>
+              )}
+              {row?.next_sync_at && (
+                <p className="text-xs text-muted-foreground">
+                  Next scheduled sync: {format(parseISO(row.next_sync_at), "MMM d, yyyy 'at' h:mm a")}
+                </p>
+              )}
+              {row?.error_message && row.last_sync_status === "error" && (
+                <p className="text-xs text-red-600 truncate">Last error: {row.error_message}</p>
+              )}
             </CardContent>
           </Card>
         );
