@@ -145,7 +145,7 @@ export function useMarkContactReviewed() {
     mutationFn: async (contactId: string) => {
       const { error } = await supabase
         .from("contacts")
-        .update({ reviewed_at: new Date().toISOString() })
+        .update({ reviewed_at: new Date().toISOString() } as Record<string, unknown>)
         .eq("id", contactId);
       if (error) throw error;
     },
@@ -159,7 +159,7 @@ export function useBulkMarkContactsReviewed() {
     mutationFn: async (contactIds: string[]) => {
       const { error } = await supabase
         .from("contacts")
-        .update({ reviewed_at: new Date().toISOString() })
+        .update({ reviewed_at: new Date().toISOString() } as Record<string, unknown>)
         .in("id", contactIds);
       if (error) throw error;
     },
