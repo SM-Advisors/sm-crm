@@ -1,7 +1,7 @@
 import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, parseISO, differenceInDays } from "date-fns";
-import { UserPlus, CheckCircle2, Circle, Mail, ExternalLink, Snowflake, ChevronsUpDown, Check, Plus } from "lucide-react";
+import { UserPlus, CheckCircle2, Circle, Mail, ExternalLink, Snowflake, ChevronsUpDown, Check, Plus, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type DataTableColumn } from "@/components/DataTable";
@@ -37,7 +37,7 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import { useQueryClient } from "@tanstack/react-query";
-import { useContacts, useCreateContact, useDeleteContact, useUpdateContact, useMarkContactReviewed, useBulkMarkContactsReviewed, useToggleContactCold } from "@/hooks/useContacts";
+import { useContacts, useCreateContact, useDeleteContact, useUpdateContact, useMarkContactReviewed, useUnmarkContactReviewed, useBulkMarkContactsReviewed, useToggleContactCold } from "@/hooks/useContacts";
 import { supabase } from "@/lib/supabase";
 import { useCompanies, useCreateCompany } from "@/hooks/useCompanies";
 import type { Contact, ContactCategory } from "@/types";
@@ -177,19 +177,19 @@ function InlineEditName({
 
   return (
     <div className="flex items-center gap-1.5">
-      <span
-        onClick={() => setEditing(true)}
-        className="font-medium cursor-text hover:bg-muted/60 rounded px-1 -mx-1 py-0.5 text-sm"
-        title="Click to edit name"
-      >
-        {fullName(contact) || <span className="text-muted-foreground">—</span>}
-      </span>
       <button
         onClick={() => navigate(`/contacts/${contact.id}`)}
-        className="text-muted-foreground hover:text-primary shrink-0 opacity-0 group-hover/row:opacity-100 transition-opacity"
+        className="font-medium text-sm text-primary hover:underline text-left"
         title="Open contact"
       >
-        <ExternalLink size={12} />
+        {fullName(contact) || <span className="text-muted-foreground">—</span>}
+      </button>
+      <button
+        onClick={() => setEditing(true)}
+        className="text-muted-foreground hover:text-foreground shrink-0 opacity-0 group-hover/row:opacity-100 transition-opacity"
+        title="Edit name"
+      >
+        <Pencil size={12} />
       </button>
     </div>
   );
@@ -378,6 +378,7 @@ const interactionTypeOptions = [
 interface ColumnHandlers {
   navigate: ReturnType<typeof useNavigate>;
   onMarkReviewed: (id: string) => void;
+  onUnmarkReviewed: (id: string) => void;
   onUpdateContact: (id: string, updates: Record<string, unknown>) => void;
   onSetCategory: (contactId: string, category: string) => void;
   onToggleCold: (id: string, isCold: boolean) => void;
@@ -419,10 +420,14 @@ function buildColumns(h: ColumnHandlers): DataTableColumn<Contact>[] {
           const daysAgo = differenceInDays(new Date(), new Date(row.original.reviewed_at!));
           const daysLeft = REVIEW_EXPIRY_DAYS - daysAgo;
           return (
-            <span className="flex items-center gap-1 text-emerald-600" title={`Reviewed — expires in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}`}>
+            <button
+              onClick={(e) => { e.stopPropagation(); h.onUnmarkReviewed(row.original.id); }}
+              className="flex items-center gap-1 text-emerald-600 hover:text-muted-foreground transition-colors"
+              title="Click to unmark as reviewed"
+            >
               <CheckCircle2 size={15} />
               <span className="text-xs">{daysLeft}d</span>
-            </span>
+            </button>
           );
         }
         return (
@@ -857,6 +862,7 @@ export default function ContactsPage() {
   const updateContact = useUpdateContact();
   const createCompany = useCreateCompany();
   const markReviewed = useMarkContactReviewed();
+  const unmarkReviewed = useUnmarkContactReviewed();
   const bulkMarkReviewed = useBulkMarkContactsReviewed();
   const toggleCold = useToggleContactCold();
 
@@ -876,6 +882,13 @@ export default function ContactsPage() {
       onError: () => toast.error("Failed to mark as reviewed"),
     });
   }, [markReviewed]);
+
+  const handleUnmarkReviewed = useCallback((id: string) => {
+    unmarkReviewed.mutate(id, {
+      onSuccess: () => toast.success("Contact moved back to not reviewed"),
+      onError: () => toast.error("Failed to update review status"),
+    });
+  }, [unmarkReviewed]);
 
   const handleUpdateContact = useCallback((id: string, updates: Record<string, unknown>) => {
     updateContact.mutate(
@@ -907,8 +920,8 @@ export default function ContactsPage() {
   }, [createCompany]);
 
   const columns = useMemo(
-    () => buildColumns({ navigate, onMarkReviewed: handleMarkReviewed, onUpdateContact: handleUpdateContact, onSetCategory: handleSetCategory, onToggleCold: handleToggleCold, onCreateCompany: handleCreateCompany, companies, showColdColumn: reviewFilter === "cold" }),
-    [navigate, handleMarkReviewed, handleUpdateContact, handleSetCategory, handleToggleCold, handleCreateCompany, companies, reviewFilter]
+    () => buildColumns({ navigate, onMarkReviewed: handleMarkReviewed, onUnmarkReviewed: handleUnmarkReviewed, onUpdateContact: handleUpdateContact, onSetCategory: handleSetCategory, onToggleCold: handleToggleCold, onCreateCompany: handleCreateCompany, companies, showColdColumn: reviewFilter === "cold" }),
+    [navigate, handleMarkReviewed, handleUnmarkReviewed, handleUpdateContact, handleSetCategory, handleToggleCold, handleCreateCompany, companies, reviewFilter]
   );
 
   // Split contacts into active (non-cold) and cold

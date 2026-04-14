@@ -164,6 +164,20 @@ export function useMarkContactReviewed() {
   });
 }
 
+export function useUnmarkContactReviewed() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (contactId: string) => {
+      const { error } = await supabase
+        .from("contacts")
+        .update({ reviewed_at: null })
+        .eq("id", contactId);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["contacts"] }),
+  });
+}
+
 export function useBulkMarkContactsReviewed() {
   const qc = useQueryClient();
   return useMutation({
