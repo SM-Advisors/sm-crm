@@ -159,7 +159,17 @@ function AgentSurfacingCard() {
 function RecentActivityCard() {
   const { data: interactions = [] } = useInteractions();
 
-  const recent = interactions.slice(0, 8);
+  // Sort by proximity to now (most recent/nearest first) and show up to 40
+  const recent = useMemo(() => {
+    const now = Date.now();
+    return [...interactions]
+      .sort((a, b) => {
+        const da = Math.abs(now - new Date(a.occurred_at).getTime());
+        const db = Math.abs(now - new Date(b.occurred_at).getTime());
+        return da - db;
+      })
+      .slice(0, 40);
+  }, [interactions]);
 
   const iconMap: Record<string, React.ElementType> = {
     email: Mail,
@@ -176,36 +186,38 @@ function RecentActivityCard() {
           Recent Activity
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent>
         {recent.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-4">No recent activity.</p>
         ) : (
-          recent.map((item) => {
-            const Icon = iconMap[item.type] ?? Activity;
-            const contact = (item as any).contact;
-            const timeAgo = item.occurred_at
-              ? formatDistanceToNow(parseISO(item.occurred_at), { addSuffix: true })
-              : "";
-            return (
-              <div key={item.id} className="flex items-start gap-3">
-                <Icon size={15} className="text-muted-foreground mt-0.5 shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-sm text-foreground leading-tight">
-                    {INTERACTION_TYPE_LABELS[item.type as keyof typeof INTERACTION_TYPE_LABELS] ?? item.type}
-                    {contact && (
-                      <span className="text-muted-foreground">
-                        {" "}— {[contact.first_name, contact.last_name].filter(Boolean).join(" ")}
-                      </span>
+          <div className="max-h-[480px] overflow-y-auto space-y-3 pr-1">
+            {recent.map((item) => {
+              const Icon = iconMap[item.type] ?? Activity;
+              const contact = (item as any).contact;
+              const timeAgo = item.occurred_at
+                ? formatDistanceToNow(parseISO(item.occurred_at), { addSuffix: true })
+                : "";
+              return (
+                <div key={item.id} className="flex items-start gap-3">
+                  <Icon size={15} className="text-muted-foreground mt-0.5 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-sm text-foreground leading-tight">
+                      {INTERACTION_TYPE_LABELS[item.type as keyof typeof INTERACTION_TYPE_LABELS] ?? item.type}
+                      {contact && (
+                        <span className="text-muted-foreground">
+                          {" "}— {[contact.first_name, contact.last_name].filter(Boolean).join(" ")}
+                        </span>
+                      )}
+                    </p>
+                    {item.subject && (
+                      <p className="text-xs text-muted-foreground truncate">{item.subject}</p>
                     )}
-                  </p>
-                  {item.subject && (
-                    <p className="text-xs text-muted-foreground truncate">{item.subject}</p>
-                  )}
-                  <p className="text-xs text-muted-foreground">{timeAgo}</p>
+                    <p className="text-xs text-muted-foreground">{timeAgo}</p>
+                  </div>
                 </div>
-              </div>
-            );
-          })
+              );
+            })}
+          </div>
         )}
       </CardContent>
     </Card>

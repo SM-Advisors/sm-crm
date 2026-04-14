@@ -1,7 +1,7 @@
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, parseISO, differenceInDays } from "date-fns";
-import { UserPlus, CheckCircle2, Circle } from "lucide-react";
+import { UserPlus, CheckCircle2, Circle, Mail, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type DataTableColumn } from "@/components/DataTable";
@@ -22,7 +22,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useContacts, useCreateContact, useDeleteContact, useMarkContactReviewed, useBulkMarkContactsReviewed } from "@/hooks/useContacts";
+import { useQueryClient } from "@tanstack/react-query";
+import { useContacts, useCreateContact, useDeleteContact, useUpdateContact, useMarkContactReviewed, useBulkMarkContactsReviewed } from "@/hooks/useContacts";
+import { supabase } from "@/lib/supabase";
 import { useCompanies } from "@/hooks/useCompanies";
 import type { Contact, ContactCategory } from "@/types";
 import { INTERACTION_TYPE_LABELS, CATEGORY_LABELS } from "@/types";
@@ -52,15 +54,190 @@ function isReviewedActive(reviewedAt: string | null | undefined): boolean {
 
 type ReviewFilter = "all" | "not_reviewed" | "reviewed";
 
+// ─── Inline editing cells ────────────────────────────────────────────────────
+
+function InlineEditText({
+  value,
+  onSave,
+  placeholder,
+  className,
+}: {
+  value: string;
+  onSave: (v: string) => void;
+  placeholder?: string;
+  className?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { setText(value); }, [value]);
+  useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
+
+  function commit() {
+    setEditing(false);
+    if (text.trim() !== value) onSave(text.trim());
+  }
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        className="w-full bg-transparent border-b border-primary/40 outline-none text-sm py-0.5 px-0"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commit();
+          if (e.key === "Escape") { setText(value); setEditing(false); }
+        }}
+      />
+    );
+  }
+
+  return (
+    <span
+      onClick={() => setEditing(true)}
+      className={`cursor-text hover:bg-muted/60 rounded px-1 -mx-1 py-0.5 ${className ?? "text-sm"}`}
+      title="Click to edit"
+    >
+      {value || <span className="text-muted-foreground">{placeholder ?? "—"}</span>}
+    </span>
+  );
+}
+
+function InlineEditName({
+  contact,
+  onSave,
+  navigate,
+}: {
+  contact: Contact;
+  onSave: (updates: { first_name?: string; last_name?: string }) => void;
+  navigate: ReturnType<typeof useNavigate>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [first, setFirst] = useState(contact.first_name ?? "");
+  const [last, setLast] = useState(contact.last_name ?? "");
+  const firstRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { setFirst(contact.first_name ?? ""); setLast(contact.last_name ?? ""); }, [contact.first_name, contact.last_name]);
+  useEffect(() => { if (editing) firstRef.current?.focus(); }, [editing]);
+
+  function commit() {
+    setEditing(false);
+    const updates: { first_name?: string; last_name?: string } = {};
+    if (first.trim() !== (contact.first_name ?? "")) updates.first_name = first.trim();
+    if (last.trim() !== (contact.last_name ?? "")) updates.last_name = last.trim();
+    if (Object.keys(updates).length > 0) onSave(updates);
+  }
+
+  if (editing) {
+    return (
+      <div className="flex gap-1">
+        <input
+          ref={firstRef}
+          className="w-20 bg-transparent border-b border-primary/40 outline-none text-sm py-0.5 px-0"
+          value={first}
+          placeholder="First"
+          onChange={(e) => setFirst(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commit();
+            if (e.key === "Escape") { setFirst(contact.first_name ?? ""); setLast(contact.last_name ?? ""); setEditing(false); }
+          }}
+        />
+        <input
+          className="w-20 bg-transparent border-b border-primary/40 outline-none text-sm py-0.5 px-0"
+          value={last}
+          placeholder="Last"
+          onChange={(e) => setLast(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commit();
+            if (e.key === "Escape") { setFirst(contact.first_name ?? ""); setLast(contact.last_name ?? ""); setEditing(false); }
+          }}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <span
+        onClick={() => setEditing(true)}
+        className="font-medium cursor-text hover:bg-muted/60 rounded px-1 -mx-1 py-0.5 text-sm"
+        title="Click to edit name"
+      >
+        {fullName(contact) || <span className="text-muted-foreground">—</span>}
+      </span>
+      <button
+        onClick={() => navigate(`/contacts/${contact.id}`)}
+        className="text-muted-foreground hover:text-primary shrink-0 opacity-0 group-hover/row:opacity-100 transition-opacity"
+        title="Open contact"
+      >
+        <ExternalLink size={12} />
+      </button>
+    </div>
+  );
+}
+
+function InlineEditSelect({
+  value,
+  options,
+  onSave,
+  renderValue,
+}: {
+  value: string;
+  options: { label: string; value: string }[];
+  onSave: (v: string) => void;
+  renderValue?: (v: string) => React.ReactNode;
+}) {
+  const [editing, setEditing] = useState(false);
+  const selectRef = useRef<HTMLSelectElement>(null);
+
+  useEffect(() => { if (editing) selectRef.current?.focus(); }, [editing]);
+
+  function commit(newVal: string) {
+    setEditing(false);
+    if (newVal !== value) onSave(newVal);
+  }
+
+  if (editing) {
+    return (
+      <select
+        ref={selectRef}
+        className="bg-transparent border-b border-primary/40 outline-none text-sm py-0.5 px-0 cursor-pointer"
+        defaultValue={value}
+        onChange={(e) => commit(e.target.value)}
+        onBlur={() => setEditing(false)}
+      >
+        <option value="">None</option>
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
+    );
+  }
+
+  return (
+    <span
+      onClick={() => setEditing(true)}
+      className="cursor-pointer hover:bg-muted/60 rounded px-1 -mx-1 py-0.5 inline-block"
+      title="Click to edit"
+    >
+      {value && renderValue ? renderValue(value) : value ? <span className="text-sm">{value}</span> : <span className="text-muted-foreground text-sm">—</span>}
+    </span>
+  );
+}
+
 // ─── Column definitions ───────────────────────────────────────────────────────
 
 const categoryOptions = [
   { label: "Client", value: "client" },
   { label: "Prospect", value: "prospect" },
-  { label: "COI", value: "coi" },
-  { label: "Vendor", value: "vendor" },
-  { label: "Partner", value: "partner" },
-  { label: "Other", value: "other" },
+  { label: "Center of Influence", value: "center_of_influence" },
+  { label: "Former Client", value: "former_client" },
+  { label: "Personal", value: "personal" },
 ];
 
 const interactionTypeOptions = [
@@ -73,10 +250,15 @@ const interactionTypeOptions = [
   { label: "Agent Outreach", value: "agent_outreach" },
 ];
 
-function buildColumns(
-  navigate: ReturnType<typeof useNavigate>,
-  onMarkReviewed: (id: string) => void,
-): DataTableColumn<Contact>[] {
+interface ColumnHandlers {
+  navigate: ReturnType<typeof useNavigate>;
+  onMarkReviewed: (id: string) => void;
+  onUpdateContact: (id: string, updates: Record<string, unknown>) => void;
+  onSetCategory: (contactId: string, category: string) => void;
+  companies: { id: string; name: string }[];
+}
+
+function buildColumns(h: ColumnHandlers): DataTableColumn<Contact>[] {
   return [
     {
       id: "reviewed",
@@ -98,7 +280,7 @@ function buildColumns(
         }
         return (
           <button
-            onClick={(e) => { e.stopPropagation(); onMarkReviewed(row.original.id); }}
+            onClick={(e) => { e.stopPropagation(); h.onMarkReviewed(row.original.id); }}
             className="text-muted-foreground hover:text-emerald-600 transition-colors"
             title="Mark as reviewed"
           >
@@ -113,12 +295,11 @@ function buildColumns(
       accessorFn: (row) => fullName(row),
       filterMeta: { type: "text" },
       cell: ({ row }) => (
-        <button
-          className="font-medium text-primary hover:underline text-left"
-          onClick={() => navigate(`/contacts/${row.original.id}`)}
-        >
-          {fullName(row.original)}
-        </button>
+        <InlineEditName
+          contact={row.original}
+          onSave={(updates) => h.onUpdateContact(row.original.id, updates)}
+          navigate={h.navigate}
+        />
       ),
     },
     {
@@ -126,18 +307,17 @@ function buildColumns(
       header: "Company",
       accessorFn: (row) => (row as any).company?.name ?? "",
       filterMeta: { type: "text" },
-      cell: ({ row }) => {
-        const c = (row.original as any).company;
-        if (!c) return <span className="text-muted-foreground">—</span>;
-        return (
-          <button
-            className="hover:underline text-left"
-            onClick={() => navigate(`/companies/${c.id}`)}
-          >
-            {c.name}
-          </button>
-        );
-      },
+      cell: ({ row }) => (
+        <InlineEditSelect
+          value={row.original.company_id ?? ""}
+          options={h.companies.map((c) => ({ label: c.name, value: c.id }))}
+          onSave={(v) => h.onUpdateContact(row.original.id, { company_id: v || null })}
+          renderValue={() => {
+            const co = (row.original as any).company;
+            return co ? <span className="text-sm">{co.name}</span> : null;
+          }}
+        />
+      ),
     },
     {
       id: "categories",
@@ -151,15 +331,17 @@ function buildColumns(
       },
       cell: ({ row }) => {
         const cats: string[] = (row.original as any).categories ?? [];
-        if (!cats.length) return <span className="text-muted-foreground">—</span>;
         return (
-          <div className="flex flex-wrap gap-1">
-            {cats.map((c) => (
-              <Badge key={c} variant="outline" className="text-xs capitalize">
-                {c}
+          <InlineEditSelect
+            value={cats[0] ?? ""}
+            options={categoryOptions}
+            onSave={(v) => h.onSetCategory(row.original.id, v)}
+            renderValue={(v) => (
+              <Badge variant="outline" className="text-xs capitalize">
+                {CATEGORY_LABELS[v as ContactCategory] ?? v}
               </Badge>
-            ))}
-          </div>
+            )}
+          />
         );
       },
     },
@@ -167,20 +349,42 @@ function buildColumns(
       accessorKey: "title",
       header: "Title",
       filterMeta: { type: "text" },
-      cell: ({ getValue }) =>
-        (getValue() as string) || <span className="text-muted-foreground">—</span>,
+      cell: ({ row }) => (
+        <InlineEditText
+          value={row.original.title ?? ""}
+          onSave={(v) => h.onUpdateContact(row.original.id, { title: v || null })}
+          placeholder="—"
+        />
+      ),
     },
     {
       accessorKey: "email",
       header: "Email",
       filterMeta: { type: "text" },
-      cell: ({ getValue }) => {
-        const email = getValue() as string | undefined;
-        if (!email) return <span className="text-muted-foreground">—</span>;
+      cell: ({ row }) => {
+        const email = row.original.email;
         return (
-          <a href={`mailto:${email}`} className="hover:underline text-primary">
-            {email}
-          </a>
+          <div className="flex items-center gap-1.5">
+            {email && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigator.clipboard.writeText(email);
+                  toast.success("Email copied to clipboard");
+                }}
+                className="text-muted-foreground hover:text-primary transition-colors shrink-0"
+                title="Copy email to clipboard"
+              >
+                <Mail size={13} />
+              </button>
+            )}
+            <InlineEditText
+              value={email ?? ""}
+              onSave={(v) => h.onUpdateContact(row.original.id, { email: v || null })}
+              placeholder="—"
+              className="text-sm text-primary"
+            />
+          </div>
         );
       },
     },
@@ -479,11 +683,14 @@ function AlphabetBar({ active, onChange }: { active: string | null; onChange: (l
 
 export default function ContactsPage() {
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const { data: contacts = [], isLoading } = useContacts();
+  const { data: companies = [] } = useCompanies();
   const [createOpen, setCreateOpen] = useState(false);
   const [letterFilter, setLetterFilter] = useState<string | null>(null);
   const [reviewFilter, setReviewFilter] = useState<ReviewFilter>("not_reviewed");
   const deleteContact = useDeleteContact();
+  const updateContact = useUpdateContact();
   const markReviewed = useMarkContactReviewed();
   const bulkMarkReviewed = useBulkMarkContactsReviewed();
 
@@ -494,7 +701,33 @@ export default function ContactsPage() {
     });
   }, [markReviewed]);
 
-  const columns = useMemo(() => buildColumns(navigate, handleMarkReviewed), [navigate, handleMarkReviewed]);
+  const handleUpdateContact = useCallback((id: string, updates: Record<string, unknown>) => {
+    updateContact.mutate(
+      { id, ...updates } as Parameters<typeof updateContact.mutate>[0],
+      {
+        onSuccess: () => toast.success("Contact updated"),
+        onError: () => toast.error("Failed to update contact"),
+      }
+    );
+  }, [updateContact]);
+
+  const handleSetCategory = useCallback(async (contactId: string, category: string) => {
+    try {
+      await supabase.from("contact_categories").delete().eq("contact_id", contactId);
+      if (category) {
+        await supabase.from("contact_categories").insert({ contact_id: contactId, category });
+      }
+      qc.invalidateQueries({ queryKey: ["contacts"] });
+      toast.success("Category updated");
+    } catch {
+      toast.error("Failed to update category");
+    }
+  }, [qc]);
+
+  const columns = useMemo(
+    () => buildColumns({ navigate, onMarkReviewed: handleMarkReviewed, onUpdateContact: handleUpdateContact, onSetCategory: handleSetCategory, companies }),
+    [navigate, handleMarkReviewed, handleUpdateContact, handleSetCategory, companies]
+  );
 
   const filtered = useMemo(() => {
     let result = contacts;

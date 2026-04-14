@@ -1060,7 +1060,16 @@ export default function ContactDetailPage() {
         <div className="p-4 flex flex-col gap-3">
           {contact.email && (
             <div className="flex items-center gap-2 group">
-              <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(contact.email!);
+                  toast.success("Email copied to clipboard");
+                }}
+                className="shrink-0 text-muted-foreground hover:text-primary transition-colors"
+                title="Copy email to clipboard"
+              >
+                <Mail className="h-4 w-4" />
+              </button>
               <a
                 href={gmailComposeUrl(contact.email)}
                 target="_blank"
