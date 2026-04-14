@@ -99,16 +99,28 @@ function ContactsTab({ company }: { company: any }) {
                 </p>
                 {c.title && <p className="text-xs text-muted-foreground">{c.title}</p>}
                 {c.email && (
-                  <a
-                    href={gmailComposeUrl(c.email)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-primary hover:underline flex items-center gap-1 mt-0.5"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Mail className="h-3 w-3" />
-                    {c.email}
-                  </a>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigator.clipboard.writeText(c.email!);
+                        toast.success("Email copied to clipboard");
+                      }}
+                      className="text-muted-foreground hover:text-primary transition-colors shrink-0"
+                      title="Copy email to clipboard"
+                    >
+                      <Mail className="h-3 w-3" />
+                    </button>
+                    <a
+                      href={gmailComposeUrl(c.email)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-primary hover:underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {c.email}
+                    </a>
+                  </div>
                 )}
               </div>
               <div className="flex flex-wrap gap-1 justify-end">

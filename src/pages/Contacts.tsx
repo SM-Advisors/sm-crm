@@ -1,7 +1,7 @@
 import { useMemo, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, parseISO, differenceInDays } from "date-fns";
-import { UserPlus, CheckCircle2, Circle } from "lucide-react";
+import { UserPlus, CheckCircle2, Circle, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type DataTableColumn } from "@/components/DataTable";
@@ -178,9 +178,20 @@ function buildColumns(
         const email = getValue() as string | undefined;
         if (!email) return <span className="text-muted-foreground">—</span>;
         return (
-          <a href={`mailto:${email}`} className="hover:underline text-primary">
-            {email}
-          </a>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                navigator.clipboard.writeText(email);
+                toast.success("Email copied to clipboard");
+              }}
+              className="text-muted-foreground hover:text-primary transition-colors shrink-0"
+              title="Copy email to clipboard"
+            >
+              <Mail size={13} />
+            </button>
+            <span className="truncate text-primary">{email}</span>
+          </div>
         );
       },
     },
