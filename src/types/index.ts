@@ -101,6 +101,7 @@ export interface Contact {
   last_contacted_at: string | null;
   last_contact_type: InteractionType | null;
   next_follow_up_at: string | null;
+  reviewed_at: string | null;
   city: string | null;
   state: string | null;
   created_at: string;
