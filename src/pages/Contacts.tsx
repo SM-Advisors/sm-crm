@@ -37,7 +37,7 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import { useQueryClient } from "@tanstack/react-query";
-import { useContacts, useCreateContact, useDeleteContact, useUpdateContact, useMarkContactReviewed, useUnmarkContactReviewed, useBulkMarkContactsReviewed, useToggleContactCold } from "@/hooks/useContacts";
+import { useContacts, useCreateContact, useUpdateContact, useMarkContactReviewed, useUnmarkContactReviewed, useToggleContactCold } from "@/hooks/useContacts";
 import { supabase } from "@/lib/supabase";
 import { useCompanies, useCreateCompany } from "@/hooks/useCompanies";
 import type { Contact, ContactCategory } from "@/types";
@@ -308,7 +308,7 @@ function InlineCompanySelect({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
-          className="cursor-pointer hover:bg-muted/60 rounded px-1 -mx-1 py-0.5 inline-flex items-center gap-1"
+          className="cursor-pointer hover:bg-muted/60 rounded px-1 -mx-1 py-0.5 inline-flex items-center gap-1 text-left"
           title="Click to change company"
         >
           <span className="text-sm">{selected?.name ?? <span className="text-muted-foreground">—</span>}</span>
@@ -858,12 +858,10 @@ export default function ContactsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [letterFilter, setLetterFilter] = useState<string | null>(null);
   const [reviewFilter, setReviewFilter] = useState<ReviewFilter>("not_reviewed");
-  const deleteContact = useDeleteContact();
   const updateContact = useUpdateContact();
   const createCompany = useCreateCompany();
   const markReviewed = useMarkContactReviewed();
   const unmarkReviewed = useUnmarkContactReviewed();
-  const bulkMarkReviewed = useBulkMarkContactsReviewed();
   const toggleCold = useToggleContactCold();
 
   const handleToggleCold = useCallback((id: string, isCold: boolean) => {
@@ -1004,24 +1002,6 @@ export default function ContactsPage() {
                 </button>
               ))}
             </div>
-            {reviewFilter === "not_reviewed" && filtered.length > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-xs gap-1.5"
-                disabled={bulkMarkReviewed.isPending}
-                onClick={() => {
-                  const ids = filtered.map((c) => c.id);
-                  bulkMarkReviewed.mutate(ids, {
-                    onSuccess: () => toast.success(`${ids.length} contact(s) marked as reviewed`),
-                    onError: () => toast.error("Failed to mark contacts as reviewed"),
-                  });
-                }}
-              >
-                <CheckCircle2 size={13} />
-                Mark all visible as reviewed
-              </Button>
-            )}
           </div>
 
           <AlphabetBar active={letterFilter} onChange={setLetterFilter} />
@@ -1032,11 +1012,6 @@ export default function ContactsPage() {
             toExportRow={toExportRow}
             searchPlaceholder="Search contacts…"
             defaultPageSize={100}
-            onBulkDelete={(ids) => {
-              Promise.all(ids.map((id) => deleteContact.mutateAsync(id)))
-                .then(() => toast.success(`${ids.length} contact(s) deleted`))
-                .catch(() => toast.error("Failed to delete some contacts"));
-            }}
           />
         </>
       )}
