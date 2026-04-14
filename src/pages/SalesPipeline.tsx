@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import { useNavigate } from "react-router-dom";
 import { KanbanBoard, type KanbanCard, type KanbanStage } from "@/components/KanbanBoard";
 import {
   useSalesDeals,
@@ -23,7 +22,6 @@ const SALES_STAGES: KanbanStage[] = [
 ];
 
 export default function SalesPipelinePage() {
-  const navigate = useNavigate();
   const { data: deals = [], isLoading } = useSalesDeals();
   const { data: companies = [] } = useCompanies();
   const { data: contacts = [] } = useContacts();
@@ -146,7 +144,6 @@ export default function SalesPipelinePage() {
         onCreate={handleCreate}
         onUpdate={handleUpdate}
         onDelete={handleDelete}
-        onCardClick={(card) => navigate(`/sales-deals/${card.id}`)}
         companies={companies}
         contacts={contacts}
         contactsByCompany={contactsByCompany}
