@@ -418,6 +418,7 @@ export type Database = {
           email_opt_out: boolean | null
           first_name: string
           id: string
+          is_cold: boolean
           is_primary_contact: boolean | null
           last_contact_type:
             | Database["public"]["Enums"]["interaction_type"]
@@ -446,6 +447,7 @@ export type Database = {
           email_opt_out?: boolean | null
           first_name: string
           id?: string
+          is_cold?: boolean
           is_primary_contact?: boolean | null
           last_contact_type?:
             | Database["public"]["Enums"]["interaction_type"]
@@ -474,6 +476,7 @@ export type Database = {
           email_opt_out?: boolean | null
           first_name?: string
           id?: string
+          is_cold?: boolean
           is_primary_contact?: boolean | null
           last_contact_type?:
             | Database["public"]["Enums"]["interaction_type"]
@@ -785,6 +788,7 @@ export type Database = {
       }
       interactions: {
         Row: {
+          attendees: string | null
           company_id: string | null
           contact_id: string | null
           created_at: string | null
@@ -792,6 +796,8 @@ export type Database = {
           deal_type: string | null
           external_id: string | null
           id: string
+          meeting_location: string | null
+          meeting_type: string | null
           occurred_at: string
           source: string | null
           subject: string | null
@@ -799,6 +805,7 @@ export type Database = {
           type: Database["public"]["Enums"]["interaction_type"]
         }
         Insert: {
+          attendees?: string | null
           company_id?: string | null
           contact_id?: string | null
           created_at?: string | null
@@ -806,6 +813,8 @@ export type Database = {
           deal_type?: string | null
           external_id?: string | null
           id?: string
+          meeting_location?: string | null
+          meeting_type?: string | null
           occurred_at: string
           source?: string | null
           subject?: string | null
@@ -813,6 +822,7 @@ export type Database = {
           type: Database["public"]["Enums"]["interaction_type"]
         }
         Update: {
+          attendees?: string | null
           company_id?: string | null
           contact_id?: string | null
           created_at?: string | null
@@ -820,6 +830,8 @@ export type Database = {
           deal_type?: string | null
           external_id?: string | null
           id?: string
+          meeting_location?: string | null
+          meeting_type?: string | null
           occurred_at?: string
           source?: string | null
           subject?: string | null
@@ -891,6 +903,7 @@ export type Database = {
           contact_id: string | null
           created_at: string | null
           currency: string | null
+          deal_id: string | null
           due_date: string | null
           id: string
           invoice_date: string | null
@@ -909,6 +922,7 @@ export type Database = {
           contact_id?: string | null
           created_at?: string | null
           currency?: string | null
+          deal_id?: string | null
           due_date?: string | null
           id?: string
           invoice_date?: string | null
@@ -927,6 +941,7 @@ export type Database = {
           contact_id?: string | null
           created_at?: string | null
           currency?: string | null
+          deal_id?: string | null
           due_date?: string | null
           id?: string
           invoice_date?: string | null
@@ -952,6 +967,13 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "sales_deals"
             referencedColumns: ["id"]
           },
         ]
