@@ -487,7 +487,7 @@ export function DataTable<T>({
       )}
 
       {/* ── Table ── */}
-      <div className="rounded-md border border-border overflow-x-auto">
+      <div className="rounded-md border border-border">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
