@@ -107,7 +107,7 @@ function KanbanCardItem({
         >
           <Card
             className="cursor-pointer hover:shadow-md transition-shadow select-none group"
-            onClick={() => onClick?.(card)}
+            onClick={() => onClick ? onClick(card) : onEditClick?.(card)}
           >
             <CardContent className="p-3">
               {/* Drag handle + title + edit */}
