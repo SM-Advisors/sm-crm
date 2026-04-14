@@ -223,6 +223,9 @@ export interface Interaction {
   occurred_at: string;
   source: string;
   external_id: string | null;
+  meeting_type: string | null;
+  meeting_location: string | null;
+  attendees: string | null;
   created_at: string;
   // Joined
   contact?: Contact | null;
@@ -235,6 +238,7 @@ export interface Interaction {
 export interface Invoice {
   id: string;
   engagement_id: string | null;
+  deal_id: string | null;
   company_id: string | null;
   contact_id: string | null;
   qb_invoice_id: string | null;
@@ -464,5 +468,5 @@ export const CATEGORY_LABELS: Record<ContactCategory, string> = {
   client: "Client",
   center_of_influence: "COI",
   former_client: "Former Client",
-  personal: "Personal",
+  personal: "Referral",
 };

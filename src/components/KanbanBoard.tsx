@@ -76,7 +76,8 @@ interface KanbanBoardProps {
   onDelete?: (id: string) => void;
   onCardClick?: (card: KanbanCard) => void;
   companies?: { id: string; name: string }[];
-  contacts?: { id: string; first_name?: string; last_name?: string }[];
+  contacts?: { id: string; first_name?: string; last_name?: string; company_id?: string | null }[];
+  contactsByCompany?: Record<string, { id: string; first_name?: string; last_name?: string }[]>;
   valueLabelSuffix?: string;
 }
 
@@ -276,6 +277,7 @@ function AddCardDialog({
   stages,
   companies,
   contacts,
+  contactsByCompany,
   onOpenChange,
   onCreate,
 }: {
@@ -283,7 +285,8 @@ function AddCardDialog({
   defaultStage: string;
   stages: KanbanStage[];
   companies?: { id: string; name: string }[];
-  contacts?: { id: string; first_name?: string; last_name?: string }[];
+  contacts?: { id: string; first_name?: string; last_name?: string; company_id?: string | null }[];
+  contactsByCompany?: Record<string, { id: string; first_name?: string; last_name?: string }[]>;
   onOpenChange: (v: boolean) => void;
   onCreate?: KanbanBoardProps["onCreate"];
 }) {
@@ -294,6 +297,11 @@ function AddCardDialog({
   const [value, setValue] = useState("");
   const [closingDate, setClosingDate] = useState("");
   const [description, setDescription] = useState("");
+
+  // Filter contacts to those associated with the selected company
+  const filteredContacts = companyId && contactsByCompany
+    ? (contactsByCompany[companyId] ?? [])
+    : (contacts ?? []);
 
   function handleCreate() {
     if (!title.trim()) { toast.error("Deal name is required"); return; }
@@ -331,7 +339,7 @@ function AddCardDialog({
           {companies && companies.length > 0 && (
             <div className="flex flex-col gap-1.5">
               <Label>Company Name</Label>
-              <Select value={companyId || "__none__"} onValueChange={(v) => setCompanyId(v === "__none__" ? "" : v)}>
+              <Select value={companyId || "__none__"} onValueChange={(v) => { setCompanyId(v === "__none__" ? "" : v); setContactId(""); }}>
                 <SelectTrigger><SelectValue placeholder="Select company…" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">None</SelectItem>
@@ -344,20 +352,23 @@ function AddCardDialog({
           )}
 
           {/* Contact Name */}
-          {contacts && contacts.length > 0 && (
+          {(filteredContacts.length > 0 || contacts?.length) && (
             <div className="flex flex-col gap-1.5">
               <Label>Contact Name</Label>
               <Select value={contactId || "__none__"} onValueChange={(v) => setContactId(v === "__none__" ? "" : v)}>
                 <SelectTrigger><SelectValue placeholder="Select contact…" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">None</SelectItem>
-                  {contacts.map((c) => (
+                  {filteredContacts.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {[c.first_name, c.last_name].filter(Boolean).join(" ")}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {companyId && filteredContacts.length === 0 && (
+                <p className="text-xs text-muted-foreground">No contacts linked to this company.</p>
+              )}
             </div>
           )}
 
@@ -426,6 +437,7 @@ function EditCardDialog({
   stages,
   companies,
   contacts,
+  contactsByCompany,
   onOpenChange,
   onUpdate,
   onDelete,
@@ -433,7 +445,8 @@ function EditCardDialog({
   card: KanbanCard | null;
   stages: KanbanStage[];
   companies?: { id: string; name: string }[];
-  contacts?: { id: string; first_name?: string; last_name?: string }[];
+  contacts?: { id: string; first_name?: string; last_name?: string; company_id?: string | null }[];
+  contactsByCompany?: Record<string, { id: string; first_name?: string; last_name?: string }[]>;
   onOpenChange: (v: boolean) => void;
   onUpdate?: KanbanBoardProps["onUpdate"];
   onDelete?: KanbanBoardProps["onDelete"];
@@ -446,6 +459,11 @@ function EditCardDialog({
   const [closingDate, setClosingDate] = useState(card?.close_date ?? "");
   const [description, setDescription] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // Filter contacts to those associated with the selected company
+  const filteredContacts = companyId && contactsByCompany
+    ? (contactsByCompany[companyId] ?? [])
+    : (contacts ?? []);
 
   if (!card) return null;
 
@@ -485,7 +503,7 @@ function EditCardDialog({
           {companies && companies.length > 0 && (
             <div className="flex flex-col gap-1.5">
               <Label>Company Name</Label>
-              <Select value={companyId || "__none__"} onValueChange={(v) => setCompanyId(v === "__none__" ? "" : v)}>
+              <Select value={companyId || "__none__"} onValueChange={(v) => { setCompanyId(v === "__none__" ? "" : v); setContactId(""); }}>
                 <SelectTrigger><SelectValue placeholder="Select company…" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">None</SelectItem>
@@ -497,20 +515,23 @@ function EditCardDialog({
             </div>
           )}
 
-          {contacts && contacts.length > 0 && (
+          {(filteredContacts.length > 0 || contacts?.length) && (
             <div className="flex flex-col gap-1.5">
               <Label>Contact Name</Label>
               <Select value={contactId || "__none__"} onValueChange={(v) => setContactId(v === "__none__" ? "" : v)}>
                 <SelectTrigger><SelectValue placeholder="Select contact…" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">None</SelectItem>
-                  {contacts.map((c) => (
+                  {filteredContacts.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {[c.first_name, c.last_name].filter(Boolean).join(" ")}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {companyId && filteredContacts.length === 0 && (
+                <p className="text-xs text-muted-foreground">No contacts linked to this company.</p>
+              )}
             </div>
           )}
 
@@ -576,6 +597,7 @@ export function KanbanBoard({
   onCardClick,
   companies,
   contacts,
+  contactsByCompany,
 }: KanbanBoardProps) {
   const [addDialogStage, setAddDialogStage] = useState<string | null>(null);
   const [editingCard, setEditingCard] = useState<KanbanCard | null>(null);
@@ -626,6 +648,7 @@ export function KanbanBoard({
         stages={stages}
         companies={companies}
         contacts={contacts}
+        contactsByCompany={contactsByCompany}
         onOpenChange={(v) => { if (!v) setAddDialogStage(null); }}
         onCreate={onCreate}
       />
@@ -636,6 +659,7 @@ export function KanbanBoard({
           stages={stages}
           companies={companies}
           contacts={contacts}
+          contactsByCompany={contactsByCompany}
           onOpenChange={(v) => { if (!v) setEditingCard(null); }}
           onUpdate={onUpdate}
           onDelete={onDelete}

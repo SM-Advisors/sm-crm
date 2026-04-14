@@ -237,7 +237,7 @@ const categoryOptions = [
   { label: "Prospect", value: "prospect" },
   { label: "Center of Influence", value: "center_of_influence" },
   { label: "Former Client", value: "former_client" },
-  { label: "Personal", value: "personal" },
+  { label: "Referral", value: "personal" },
 ];
 
 const interactionTypeOptions = [
@@ -888,6 +888,7 @@ export default function ContactsPage() {
             exportName="contacts"
             toExportRow={toExportRow}
             searchPlaceholder="Search contacts…"
+            defaultPageSize={100}
             onBulkDelete={(ids) => {
               Promise.all(ids.map((id) => deleteContact.mutateAsync(id)))
                 .then(() => toast.success(`${ids.length} contact(s) deleted`))
