@@ -1,7 +1,7 @@
 import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, parseISO, differenceInDays } from "date-fns";
-import { UserPlus, CheckCircle2, Circle, Mail, ExternalLink } from "lucide-react";
+import { UserPlus, CheckCircle2, Circle, Mail, ExternalLink, Snowflake } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type DataTableColumn } from "@/components/DataTable";
@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useQueryClient } from "@tanstack/react-query";
-import { useContacts, useCreateContact, useDeleteContact, useUpdateContact, useMarkContactReviewed, useBulkMarkContactsReviewed } from "@/hooks/useContacts";
+import { useContacts, useCreateContact, useDeleteContact, useUpdateContact, useMarkContactReviewed, useBulkMarkContactsReviewed, useToggleContactCold } from "@/hooks/useContacts";
 import { supabase } from "@/lib/supabase";
 import { useCompanies } from "@/hooks/useCompanies";
 import type { Contact, ContactCategory } from "@/types";
@@ -52,7 +52,7 @@ function isReviewedActive(reviewedAt: string | null | undefined): boolean {
   return differenceInDays(new Date(), new Date(reviewedAt)) < REVIEW_EXPIRY_DAYS;
 }
 
-type ReviewFilter = "all" | "not_reviewed" | "reviewed";
+type ReviewFilter = "all" | "not_reviewed" | "reviewed" | "cold";
 
 // ─── Inline editing cells ────────────────────────────────────────────────────
 
@@ -255,12 +255,33 @@ interface ColumnHandlers {
   onMarkReviewed: (id: string) => void;
   onUpdateContact: (id: string, updates: Record<string, unknown>) => void;
   onSetCategory: (contactId: string, category: string) => void;
+  onToggleCold: (id: string, isCold: boolean) => void;
   companies: { id: string; name: string }[];
+  showColdColumn: boolean;
 }
 
 function buildColumns(h: ColumnHandlers): DataTableColumn<Contact>[] {
-  return [
-    {
+  const cols: DataTableColumn<Contact>[] = [];
+
+  // In cold view, show a "Restore" action instead of reviewed
+  if (h.showColdColumn) {
+    cols.push({
+      id: "cold_action",
+      header: "",
+      size: 70,
+      enableSorting: false,
+      cell: ({ row }) => (
+        <button
+          onClick={(e) => { e.stopPropagation(); h.onToggleCold(row.original.id, false); }}
+          className="text-xs text-blue-500 hover:text-blue-700 transition-colors font-medium"
+          title="Restore to active contacts"
+        >
+          Restore
+        </button>
+      ),
+    });
+  } else {
+    cols.push({
       id: "reviewed",
       header: "Reviewed",
       size: 80,
@@ -288,8 +309,27 @@ function buildColumns(h: ColumnHandlers): DataTableColumn<Contact>[] {
           </button>
         );
       },
-    },
-    {
+    });
+
+    // Cold toggle button — only in non-cold views
+    cols.push({
+      id: "cold_action",
+      header: "",
+      size: 50,
+      enableSorting: false,
+      cell: ({ row }) => (
+        <button
+          onClick={(e) => { e.stopPropagation(); h.onToggleCold(row.original.id, true); }}
+          className="text-muted-foreground hover:text-blue-500 transition-colors opacity-0 group-hover/row:opacity-100"
+          title="Move to Cold Contacts"
+        >
+          <Snowflake size={14} />
+        </button>
+      ),
+    });
+  }
+
+  cols.push({
       id: "name",
       header: "Name",
       accessorFn: (row) => fullName(row),
@@ -438,8 +478,9 @@ function buildColumns(h: ColumnHandlers): DataTableColumn<Contact>[] {
           </div>
         );
       },
-    },
-  ];
+    });
+
+  return cols;
 }
 
 // ─── Export row mapper ────────────────────────────────────────────────────────
@@ -693,6 +734,17 @@ export default function ContactsPage() {
   const updateContact = useUpdateContact();
   const markReviewed = useMarkContactReviewed();
   const bulkMarkReviewed = useBulkMarkContactsReviewed();
+  const toggleCold = useToggleContactCold();
+
+  const handleToggleCold = useCallback((id: string, isCold: boolean) => {
+    toggleCold.mutate(
+      { contactId: id, isCold },
+      {
+        onSuccess: () => toast.success(isCold ? "Moved to Cold Contacts" : "Restored to active contacts"),
+        onError: () => toast.error("Failed to update contact"),
+      }
+    );
+  }, [toggleCold]);
 
   const handleMarkReviewed = useCallback((id: string) => {
     markReviewed.mutate(id, {
@@ -725,18 +777,27 @@ export default function ContactsPage() {
   }, [qc]);
 
   const columns = useMemo(
-    () => buildColumns({ navigate, onMarkReviewed: handleMarkReviewed, onUpdateContact: handleUpdateContact, onSetCategory: handleSetCategory, companies }),
-    [navigate, handleMarkReviewed, handleUpdateContact, handleSetCategory, companies]
+    () => buildColumns({ navigate, onMarkReviewed: handleMarkReviewed, onUpdateContact: handleUpdateContact, onSetCategory: handleSetCategory, onToggleCold: handleToggleCold, companies, showColdColumn: reviewFilter === "cold" }),
+    [navigate, handleMarkReviewed, handleUpdateContact, handleSetCategory, handleToggleCold, companies, reviewFilter]
   );
 
-  const filtered = useMemo(() => {
-    let result = contacts;
+  // Split contacts into active (non-cold) and cold
+  const activeContacts = useMemo(() => contacts.filter((c) => !c.is_cold), [contacts]);
+  const coldContacts = useMemo(() => contacts.filter((c) => c.is_cold), [contacts]);
 
-    // Review filter
-    if (reviewFilter === "reviewed") {
-      result = result.filter((c) => isReviewedActive(c.reviewed_at));
-    } else if (reviewFilter === "not_reviewed") {
-      result = result.filter((c) => !isReviewedActive(c.reviewed_at));
+  const filtered = useMemo(() => {
+    let result: Contact[];
+
+    if (reviewFilter === "cold") {
+      result = coldContacts;
+    } else {
+      result = activeContacts;
+      // Review filter (only applies to active contacts)
+      if (reviewFilter === "reviewed") {
+        result = result.filter((c) => isReviewedActive(c.reviewed_at));
+      } else if (reviewFilter === "not_reviewed") {
+        result = result.filter((c) => !isReviewedActive(c.reviewed_at));
+      }
     }
 
     // Alphabet filter
@@ -748,11 +809,11 @@ export default function ContactsPage() {
     }
 
     return result;
-  }, [contacts, letterFilter, reviewFilter]);
+  }, [activeContacts, coldContacts, letterFilter, reviewFilter]);
 
   const reviewedCount = useMemo(
-    () => contacts.filter((c) => isReviewedActive(c.reviewed_at)).length,
-    [contacts]
+    () => activeContacts.filter((c) => isReviewedActive(c.reviewed_at)).length,
+    [activeContacts]
   );
 
   return (
@@ -780,9 +841,10 @@ export default function ContactsPage() {
           <div className="flex items-center gap-4">
             <div className="flex gap-1 bg-muted rounded-lg p-0.5">
               {([
-                { key: "not_reviewed" as const, label: "Not Reviewed", count: contacts.length - reviewedCount },
+                { key: "not_reviewed" as const, label: "Not Reviewed", count: activeContacts.length - reviewedCount },
                 { key: "reviewed" as const, label: "Reviewed", count: reviewedCount },
-                { key: "all" as const, label: "All", count: contacts.length },
+                { key: "all" as const, label: "All", count: activeContacts.length },
+                { key: "cold" as const, label: "Cold Contacts", count: coldContacts.length },
               ]).map((tab) => (
                 <button
                   key={tab.key}
@@ -793,6 +855,7 @@ export default function ContactsPage() {
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
+                  {tab.key === "cold" && <Snowflake size={12} className="inline mr-1" />}
                   {tab.label}
                   <span className="ml-1.5 text-xs text-muted-foreground">{tab.count}</span>
                 </button>

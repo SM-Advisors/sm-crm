@@ -17,6 +17,7 @@ import {
   Folder,
   Trash2,
   MapPin,
+  Snowflake,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -41,7 +42,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useQueryClient } from "@tanstack/react-query";
-import { useContact, useUpdateContact, useDeleteContact } from "@/hooks/useContacts";
+import { useContact, useUpdateContact, useDeleteContact, useToggleContactCold } from "@/hooks/useContacts";
 import { useLogInteraction } from "@/hooks/useInteractions";
 import { useCreateSalesDeal } from "@/hooks/useDeals";
 import { useCompanies } from "@/hooks/useCompanies";
@@ -962,6 +963,7 @@ export default function ContactDetailPage() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const { data: contact, isLoading, isError } = useContact(id!);
   const deleteContact = useDeleteContact();
+  const toggleCold = useToggleContactCold();
 
   if (isLoading) {
     return (
@@ -1019,6 +1021,24 @@ export default function ContactDetailPage() {
               <Button
                 size="icon"
                 variant="ghost"
+                className={`h-8 w-8 ${contact.is_cold ? "text-blue-500" : ""}`}
+                title={contact.is_cold ? "Restore from Cold Contacts" : "Move to Cold Contacts"}
+                onClick={() => {
+                  const newCold = !contact.is_cold;
+                  toggleCold.mutate(
+                    { contactId: id!, isCold: newCold },
+                    {
+                      onSuccess: () => toast.success(newCold ? "Moved to Cold Contacts" : "Restored to active contacts"),
+                      onError: () => toast.error("Failed to update contact"),
+                    }
+                  );
+                }}
+              >
+                <Snowflake className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
                 className="h-8 w-8 text-destructive hover:text-destructive"
                 onClick={() => {
                   if (!confirmDelete) {
@@ -1041,6 +1061,14 @@ export default function ContactDetailPage() {
           {confirmDelete && (
             <div className="mt-2 p-2 bg-destructive/10 border border-destructive/20 rounded text-xs text-destructive">
               Click the trash icon again to confirm deletion. <button className="underline ml-1" onClick={() => setConfirmDelete(false)}>Cancel</button>
+            </div>
+          )}
+
+          {/* Cold contact indicator */}
+          {contact.is_cold && (
+            <div className="mt-2 flex items-center gap-1.5 p-1.5 bg-blue-500/10 border border-blue-500/20 rounded text-xs text-blue-600 dark:text-blue-400">
+              <Snowflake size={12} />
+              Cold Contact
             </div>
           )}
 
