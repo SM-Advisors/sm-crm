@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { format, parseISO, differenceInDays } from "date-fns";
 import {
@@ -13,13 +13,25 @@ import {
   CheckCircle2,
   Send,
   Clock,
+  Pencil,
+  Plus,
+  ExternalLink,
+  Folder,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -27,7 +39,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useQueryClient } from "@tanstack/react-query";
 import { useSalesDeal, useUpdateSalesDeal } from "@/hooks/useDeals";
+import { useCompanies } from "@/hooks/useCompanies";
+import { useContacts } from "@/hooks/useContacts";
+import { supabase } from "@/lib/supabase";
 import { SALES_STAGE_LABELS, INTERACTION_TYPE_LABELS } from "@/types";
 import type { SalesStage, SalesDeal } from "@/types";
 import { toast } from "sonner";
@@ -52,15 +68,25 @@ const CONTRACT_STATUS_LABELS: Record<string, string> = {
 export default function DealDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const { data: deal, isLoading, isError } = useSalesDeal(id!);
   const updateDeal = useUpdateSalesDeal();
+  const { data: companies = [] } = useCompanies();
+  const { data: allContacts = [] } = useContacts();
 
+  const [editOpen, setEditOpen] = useState(false);
   const [editingContract, setEditingContract] = useState(false);
   const [contractForm, setContractForm] = useState({
     contract_sent_date: "",
     countersigned_date: "",
     contract_status: "none" as string,
   });
+
+  // Files
+  const [addLinkOpen, setAddLinkOpen] = useState(false);
+  const [linkTitle, setLinkTitle] = useState("");
+  const [linkUrl, setLinkUrl] = useState("");
+  const [savingLink, setSavingLink] = useState(false);
 
   if (isLoading) {
     return (
@@ -87,6 +113,103 @@ export default function DealDetailPage() {
   const contactName = deal.contact
     ? [deal.contact.first_name, deal.contact.last_name].filter(Boolean).join(" ")
     : null;
+
+  // Contacts filtered by deal's company
+  const companyContacts = useMemo(() => {
+    if (!deal.company_id) return allContacts;
+    return allContacts.filter((c) => c.company_id === deal.company_id);
+  }, [allContacts, deal.company_id]);
+
+  // Document links for this deal
+  const [docLinks, setDocLinks] = useState<{ id: string; title: string; url: string }[]>([]);
+  const [docsLoaded, setDocsLoaded] = useState(false);
+  if (!docsLoaded && deal.id) {
+    supabase
+      .from("document_links")
+      .select("*")
+      .eq("linkable_type", "sales_deal")
+      .eq("linkable_id", deal.id)
+      .then(({ data }) => { setDocLinks((data ?? []) as { id: string; title: string; url: string }[]); setDocsLoaded(true); });
+  }
+
+  // Edit deal form
+  const [editForm, setEditForm] = useState({
+    title: deal.title ?? "",
+    stage: deal.stage ?? "qualification",
+    company_id: deal.company_id ?? "",
+    contact_id: deal.contact_id ?? "",
+    value: deal.value?.toString() ?? "",
+    probability: deal.probability?.toString() ?? "",
+    expected_close_date: deal.expected_close_date ?? "",
+    description: deal.description ?? "",
+  });
+
+  function openEdit() {
+    setEditForm({
+      title: deal.title ?? "",
+      stage: deal.stage ?? "qualification",
+      company_id: deal.company_id ?? "",
+      contact_id: deal.contact_id ?? "",
+      value: deal.value?.toString() ?? "",
+      probability: deal.probability?.toString() ?? "",
+      expected_close_date: deal.expected_close_date ?? "",
+      description: deal.description ?? "",
+    });
+    setEditOpen(true);
+  }
+
+  // Contacts for edit form — depends on selected company in form
+  const editFormContacts = useMemo(() => {
+    if (!editForm.company_id) return allContacts;
+    return allContacts.filter((c) => c.company_id === editForm.company_id);
+  }, [allContacts, editForm.company_id]);
+
+  function saveEdit() {
+    updateDeal.mutate(
+      {
+        id: deal.id,
+        title: editForm.title.trim(),
+        stage: editForm.stage as SalesStage,
+        company_id: editForm.company_id || null,
+        contact_id: editForm.contact_id || null,
+        value: editForm.value ? parseFloat(editForm.value) : null,
+        probability: editForm.probability ? parseInt(editForm.probability) : null,
+        expected_close_date: editForm.expected_close_date || null,
+        description: editForm.description.trim() || null,
+      } as Parameters<typeof updateDeal.mutate>[0],
+      {
+        onSuccess: () => {
+          toast.success("Deal updated");
+          setEditOpen(false);
+          qc.invalidateQueries({ queryKey: ["sales_deal", id] });
+        },
+        onError: () => toast.error("Failed to update deal"),
+      }
+    );
+  }
+
+  async function handleAddLink() {
+    if (!linkTitle.trim() || !linkUrl.trim()) {
+      toast.error("Title and URL are required");
+      return;
+    }
+    setSavingLink(true);
+    const { error } = await supabase.from("document_links").insert({
+      linkable_type: "sales_deal",
+      linkable_id: deal.id,
+      title: linkTitle.trim(),
+      url: linkUrl.trim(),
+    });
+    setSavingLink(false);
+    if (error) { toast.error("Failed to add link"); return; }
+    toast.success("Link added");
+    setLinkTitle("");
+    setLinkUrl("");
+    setAddLinkOpen(false);
+    // Re-fetch links
+    const { data } = await supabase.from("document_links").select("*").eq("linkable_type", "sales_deal").eq("linkable_id", deal.id);
+    setDocLinks((data ?? []) as { id: string; title: string; url: string }[]);
+  }
 
   const isOverdue =
     deal.expected_close_date &&
@@ -170,6 +293,10 @@ export default function DealDetailPage() {
               )}
             </div>
           </div>
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={openEdit}>
+            <Pencil className="h-3.5 w-3.5" />
+            Edit Deal
+          </Button>
         </div>
       </div>
 
@@ -418,6 +545,36 @@ export default function DealDetailPage() {
         </CardContent>
       </Card>
 
+      {/* Files */}
+      <Card>
+        <CardHeader className="pb-3 flex flex-row items-center justify-between">
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <Folder className="h-4 w-4" />
+            Files
+          </CardTitle>
+          <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setAddLinkOpen(true)}>
+            <Plus className="h-3.5 w-3.5" />
+            Add Link
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {docLinks.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No files linked to this deal.</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {docLinks.map((doc) => (
+                <a key={doc.id} href={doc.url} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-3 p-3 rounded-md border hover:bg-muted/40 transition-colors">
+                  <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="text-sm flex-1">{doc.title}</span>
+                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                </a>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Recent Activity */}
       <Card>
         <CardHeader className="pb-3">
@@ -454,6 +611,107 @@ export default function DealDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Deal Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader><DialogTitle>Edit Deal</DialogTitle></DialogHeader>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label>Deal Name *</Label>
+              <Input value={editForm.title} onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))} autoFocus />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label>Company</Label>
+                <Select value={editForm.company_id || "__none__"} onValueChange={(v) => setEditForm((f) => ({ ...f, company_id: v === "__none__" ? "" : v, contact_id: "" }))}>
+                  <SelectTrigger><SelectValue placeholder="Select company…" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">None</SelectItem>
+                    {companies.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Contact</Label>
+                <Select value={editForm.contact_id || "__none__"} onValueChange={(v) => setEditForm((f) => ({ ...f, contact_id: v === "__none__" ? "" : v }))}>
+                  <SelectTrigger><SelectValue placeholder="Select contact…" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">None</SelectItem>
+                    {editFormContacts.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{[c.first_name, c.last_name].filter(Boolean).join(" ")}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {editForm.company_id && editFormContacts.length === 0 && (
+                  <p className="text-xs text-muted-foreground">No contacts linked to this company.</p>
+                )}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label>Stage</Label>
+                <Select value={editForm.stage} onValueChange={(v) => setEditForm((f) => ({ ...f, stage: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(SALES_STAGE_LABELS).map(([k, v]) => (
+                      <SelectItem key={k} value={k}>{v}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Probability (%)</Label>
+                <Input type="number" min="0" max="100" value={editForm.probability} onChange={(e) => setEditForm((f) => ({ ...f, probability: e.target.value }))} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label>Amount</Label>
+                <div className="relative">
+                  <Input type="number" placeholder="0" value={editForm.value} onChange={(e) => setEditForm((f) => ({ ...f, value: e.target.value }))} className="pr-8" />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+                </div>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Follow Up Date</Label>
+                <Input type="date" value={editForm.expected_close_date} onChange={(e) => setEditForm((f) => ({ ...f, expected_close_date: e.target.value }))} />
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Description</Label>
+              <Textarea value={editForm.description} onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))} className="min-h-[80px] resize-y" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
+            <Button onClick={saveEdit} disabled={updateDeal.isPending}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Link Dialog */}
+      <Dialog open={addLinkOpen} onOpenChange={setAddLinkOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Add Document Link</DialogTitle></DialogHeader>
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label>Title *</Label>
+              <Input placeholder="e.g., Engagement Letter" value={linkTitle} onChange={(e) => setLinkTitle(e.target.value)} autoFocus />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>URL *</Label>
+              <Input placeholder="https://drive.google.com/..." value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddLinkOpen(false)}>Cancel</Button>
+            <Button onClick={handleAddLink} disabled={savingLink}>Add Link</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

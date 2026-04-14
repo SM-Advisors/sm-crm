@@ -43,12 +43,12 @@ import {
 } from "@/components/ui/select";
 import { useQueryClient } from "@tanstack/react-query";
 import { useContact, useUpdateContact, useDeleteContact, useToggleContactCold } from "@/hooks/useContacts";
-import { useLogInteraction } from "@/hooks/useInteractions";
+import { useLogInteraction, useUpdateInteraction } from "@/hooks/useInteractions";
 import { useCreateSalesDeal } from "@/hooks/useDeals";
 import { useCompanies } from "@/hooks/useCompanies";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
-import type { ContactWithDetails, InteractionType } from "@/types";
+import type { ContactWithDetails, InteractionType, Interaction } from "@/types";
 import { INTERACTION_TYPE_LABELS, SALES_STAGE_LABELS, DELIVERY_STAGE_LABELS } from "@/types";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -212,6 +212,9 @@ function ActivitiesTab({ contact }: { contact: ContactWithDetails }) {
   const [type, setType] = useState<InteractionType>("call");
   const [subject, setSubject] = useState("");
   const [summary, setSummary] = useState("");
+  const [meetingType, setMeetingType] = useState("");
+  const [meetingLocation, setMeetingLocation] = useState("");
+  const [attendees, setAttendees] = useState("");
   const [occurredAt, setOccurredAt] = useState(() => {
     const now = new Date();
     const central = new Date(now.toLocaleString("en-US", { timeZone: "America/Chicago" }));
@@ -222,6 +225,14 @@ function ActivitiesTab({ contact }: { contact: ContactWithDetails }) {
       String(central.getMinutes()).padStart(2, "0");
   });
   const logInteraction = useLogInteraction();
+  const updateInteraction = useUpdateInteraction();
+
+  // Edit meeting state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editSummary, setEditSummary] = useState("");
+  const [editMeetingType, setEditMeetingType] = useState("");
+  const [editMeetingLocation, setEditMeetingLocation] = useState("");
+  const [editAttendees, setEditAttendees] = useState("");
 
   const activityTypes: InteractionType[] = ["call", "meeting", "conference", "linkedin_message", "text"];
   const activities = (contact.interactions ?? []).filter((i) =>
@@ -237,18 +248,50 @@ function ActivitiesTab({ contact }: { contact: ContactWithDetails }) {
         subject: subject.trim() || undefined,
         summary: summary.trim() || undefined,
         occurred_at: new Date(occurredAt).toISOString(),
+        meeting_type: (type === "meeting" || type === "conference") ? (meetingType || undefined) : undefined,
+        meeting_location: (type === "meeting" || type === "conference") ? (meetingLocation || undefined) : undefined,
+        attendees: (type === "meeting" || type === "conference") ? (attendees || undefined) : undefined,
       },
       {
         onSuccess: () => {
           toast.success("Activity logged");
-          setSubject("");
-          setSummary("");
+          setSubject(""); setSummary(""); setMeetingType(""); setMeetingLocation(""); setAttendees("");
           setOpen(false);
         },
         onError: () => toast.error("Failed to log activity"),
       }
     );
   }
+
+  function startEdit(a: Interaction) {
+    setEditingId(a.id);
+    setEditSummary(a.summary ?? "");
+    setEditMeetingType(a.meeting_type ?? "");
+    setEditMeetingLocation(a.meeting_location ?? "");
+    setEditAttendees(a.attendees ?? "");
+  }
+
+  function saveEdit() {
+    if (!editingId) return;
+    updateInteraction.mutate(
+      {
+        id: editingId,
+        summary: editSummary.trim() || null,
+        meeting_type: editMeetingType.trim() || null,
+        meeting_location: editMeetingLocation.trim() || null,
+        attendees: editAttendees.trim() || null,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Activity updated");
+          setEditingId(null);
+        },
+        onError: () => toast.error("Failed to update"),
+      }
+    );
+  }
+
+  const isMeetingType = type === "meeting" || type === "conference";
 
   return (
     <div className="flex flex-col gap-4">
@@ -265,20 +308,78 @@ function ActivitiesTab({ contact }: { contact: ContactWithDetails }) {
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          {activities.map((a) => (
-            <Card key={a.id}>
-              <CardContent className="pt-4 flex gap-3">
-                <Badge variant="outline" className="capitalize shrink-0">
-                  {INTERACTION_TYPE_LABELS[a.type as keyof typeof INTERACTION_TYPE_LABELS] ?? a.type}
-                </Badge>
-                <div className="flex flex-col gap-0.5 flex-1">
-                  {a.subject && <p className="text-sm font-medium">{a.subject}</p>}
-                  {a.summary && <p className="text-sm text-muted-foreground">{a.summary}</p>}
-                  <p className="text-xs text-muted-foreground">{formatDateTime(a.occurred_at)}</p>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          {activities.map((a) => {
+            const isEditing = editingId === a.id;
+            const isMeeting = a.type === "meeting" || a.type === "conference";
+            return (
+              <Card key={a.id}>
+                <CardContent className="pt-4">
+                  <div className="flex gap-3">
+                    <Badge variant="outline" className="capitalize shrink-0 h-fit">
+                      {INTERACTION_TYPE_LABELS[a.type as keyof typeof INTERACTION_TYPE_LABELS] ?? a.type}
+                    </Badge>
+                    <div className="flex flex-col gap-0.5 flex-1">
+                      {a.subject && <p className="text-sm font-medium">{a.subject}</p>}
+                      {isMeeting && (a.meeting_type || a.meeting_location || a.attendees) && !isEditing && (
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground mt-0.5">
+                          {a.meeting_type && <span>Type: <span className="text-foreground">{a.meeting_type}</span></span>}
+                          {a.meeting_location && <span>Location: <span className="text-foreground">{a.meeting_location}</span></span>}
+                          {a.attendees && <span>Attendees: <span className="text-foreground">{a.attendees}</span></span>}
+                        </div>
+                      )}
+                      {a.summary && !isEditing && <p className="text-sm text-muted-foreground">{a.summary}</p>}
+                      <p className="text-xs text-muted-foreground">{formatDateTime(a.occurred_at)}</p>
+                    </div>
+                    {!isEditing && (
+                      <button
+                        onClick={() => startEdit(a)}
+                        className="text-muted-foreground hover:text-foreground shrink-0"
+                        title="Edit activity"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  {isEditing && (
+                    <div className="mt-3 flex flex-col gap-2 pl-10">
+                      {isMeeting && (
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="flex flex-col gap-1">
+                            <Label className="text-xs">Meeting Type</Label>
+                            <Select value={editMeetingType || "__none__"} onValueChange={(v) => setEditMeetingType(v === "__none__" ? "" : v)}>
+                              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select…" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__none__">None</SelectItem>
+                                <SelectItem value="In Person">In Person</SelectItem>
+                                <SelectItem value="Virtual">Virtual</SelectItem>
+                                <SelectItem value="Phone">Phone</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <Label className="text-xs">Location</Label>
+                            <Input className="h-8 text-xs" value={editMeetingLocation} onChange={(e) => setEditMeetingLocation(e.target.value)} placeholder="Where?" />
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <Label className="text-xs">Attendees</Label>
+                            <Input className="h-8 text-xs" value={editAttendees} onChange={(e) => setEditAttendees(e.target.value)} placeholder="Other attendees" />
+                          </div>
+                        </div>
+                      )}
+                      <div className="flex flex-col gap-1">
+                        <Label className="text-xs">Notes</Label>
+                        <Textarea rows={2} className="text-xs" value={editSummary} onChange={(e) => setEditSummary(e.target.value)} />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button size="sm" className="h-7 text-xs" onClick={saveEdit} disabled={updateInteraction.isPending}>Save</Button>
+                        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditingId(null)}>Cancel</Button>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
@@ -303,6 +404,30 @@ function ActivitiesTab({ contact }: { contact: ContactWithDetails }) {
                 </SelectContent>
               </Select>
             </div>
+            {isMeetingType && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label>Meeting Type</Label>
+                  <Select value={meetingType || "__none__"} onValueChange={(v) => setMeetingType(v === "__none__" ? "" : v)}>
+                    <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">None</SelectItem>
+                      <SelectItem value="In Person">In Person</SelectItem>
+                      <SelectItem value="Virtual">Virtual</SelectItem>
+                      <SelectItem value="Phone">Phone</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label>Location</Label>
+                  <Input value={meetingLocation} onChange={(e) => setMeetingLocation(e.target.value)} placeholder="Where?" />
+                </div>
+                <div className="flex flex-col gap-1.5 col-span-2">
+                  <Label>Attendees</Label>
+                  <Input value={attendees} onChange={(e) => setAttendees(e.target.value)} placeholder="Other attendees" />
+                </div>
+              </div>
+            )}
             <div className="flex flex-col gap-1.5">
               <Label>Subject</Label>
               <Input

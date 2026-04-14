@@ -167,10 +167,10 @@ export default function InvoiceDetailPage() {
             </div>
             {editingDeal ? (
               <Select
-                value={(invoice as unknown as Record<string, unknown>).deal_id as string ?? "__none__"}
+                value={invoice.deal_id ?? "__none__"}
                 onValueChange={(v) => {
                   updateInvoice.mutate(
-                    { id: invoice.id, ...({ deal_id: v === "__none__" ? null : v } as Record<string, unknown>) } as { id: string },
+                    { id: invoice.id, deal_id: v === "__none__" ? null : v } as Parameters<typeof updateInvoice.mutate>[0],
                     {
                       onSuccess: () => { toast.success("Deal linked"); setEditingDeal(false); },
                       onError: () => toast.error("Failed to link deal"),
@@ -190,7 +190,9 @@ export default function InvoiceDetailPage() {
               </Select>
             ) : (
               <p className="text-sm font-medium mt-1">
-                {(invoice as any).engagement?.title ?? "—"}
+                {invoice.deal_id
+                  ? (companyDeals.find((d) => d.id === invoice.deal_id)?.title ?? "Linked Deal")
+                  : (invoice as any).engagement?.title ?? "—"}
               </p>
             )}
           </CardContent>

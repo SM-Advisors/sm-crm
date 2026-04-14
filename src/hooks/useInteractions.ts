@@ -32,6 +32,9 @@ export function useLogInteraction() {
       summary?: string;
       occurred_at: string;
       source?: string;
+      meeting_type?: string;
+      meeting_location?: string;
+      attendees?: string;
     }) => {
       const { data, error } = await supabase.from("interactions").insert(input).select().single();
       if (error) throw error;
@@ -41,6 +44,26 @@ export function useLogInteraction() {
       qc.invalidateQueries({ queryKey: ["interactions"] });
       if (vars.contact_id) qc.invalidateQueries({ queryKey: ["contact", vars.contact_id] });
       if (vars.company_id) qc.invalidateQueries({ queryKey: ["company", vars.company_id] });
+      qc.invalidateQueries({ queryKey: ["contacts"] });
+    },
+  });
+}
+
+export function useUpdateInteraction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: { id: string } & Record<string, unknown>) => {
+      const { data, error } = await supabase
+        .from("interactions")
+        .update(updates)
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["interactions"] });
       qc.invalidateQueries({ queryKey: ["contacts"] });
     },
   });

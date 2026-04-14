@@ -41,10 +41,12 @@ import {
 } from "@/components/ui/select";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCompany, useUpdateCompany, useDeleteCompany } from "@/hooks/useCompanies";
+import { useCreateContact } from "@/hooks/useContacts";
 import { supabase } from "@/lib/supabase";
 import { useLogInteraction } from "@/hooks/useInteractions";
 import { toast } from "sonner";
-import type { Company, InteractionType } from "@/types";
+import type { Company, InteractionType, ContactCategory } from "@/types";
+import { CATEGORY_LABELS } from "@/types";
 import {
   INTERACTION_TYPE_LABELS,
   SALES_STAGE_LABELS,
@@ -78,12 +80,56 @@ function SidebarField({ label, value }: { label: string; value?: string | null }
 
 // ─── Contacts tab ─────────────────────────────────────────────────────────────
 
+const ALL_CATEGORIES: ContactCategory[] = ["prospect", "client", "center_of_influence", "former_client", "personal"];
+
 function ContactsTab({ company }: { company: any }) {
   const navigate = useNavigate();
   const contacts = company.contacts ?? [];
+  const createContact = useCreateContact();
+  const qc = useQueryClient();
+  const [addOpen, setAddOpen] = useState(false);
+  const [form, setForm] = useState({
+    first_name: "",
+    last_name: "",
+    title: "",
+    email: "",
+    phone: "",
+    category: "" as ContactCategory | "",
+  });
+
+  function handleCreate() {
+    if (!form.first_name.trim() && !form.last_name.trim()) {
+      toast.error("Name is required");
+      return;
+    }
+    const { category, ...rest } = form;
+    createContact.mutate(
+      {
+        ...rest,
+        company_id: company.id,
+        categories: category ? [category] : [],
+      },
+      {
+        onSuccess: () => {
+          toast.success("Contact added");
+          setForm({ first_name: "", last_name: "", title: "", email: "", phone: "", category: "" });
+          setAddOpen(false);
+          qc.invalidateQueries({ queryKey: ["company", company.id] });
+        },
+        onError: () => toast.error("Failed to create contact"),
+      }
+    );
+  }
 
   return (
     <div className="flex flex-col gap-3">
+      <div className="flex justify-end">
+        <Button size="sm" onClick={() => setAddOpen(true)} className="gap-1.5">
+          <Plus className="h-4 w-4" />
+          Add Contact
+        </Button>
+      </div>
+
       {contacts.length === 0 ? (
         <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
           No contacts linked to this company.
@@ -132,6 +178,50 @@ function ContactsTab({ company }: { company: any }) {
           </Card>
         ))
       )}
+
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Add Contact to {company.name}</DialogTitle></DialogHeader>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label>First Name *</Label>
+              <Input value={form.first_name} onChange={(e) => setForm((f) => ({ ...f, first_name: e.target.value }))} autoFocus />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Last Name *</Label>
+              <Input value={form.last_name} onChange={(e) => setForm((f) => ({ ...f, last_name: e.target.value }))} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Title</Label>
+              <Input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Category</Label>
+              <Select value={form.category || "__none__"} onValueChange={(v) => setForm((f) => ({ ...f, category: (v === "__none__" ? "" : v) as ContactCategory | "" }))}>
+                <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">None</SelectItem>
+                  {ALL_CATEGORIES.map((cat) => (
+                    <SelectItem key={cat} value={cat}>{CATEGORY_LABELS[cat]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Email</Label>
+              <Input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Phone</Label>
+              <Input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
+            <Button onClick={handleCreate} disabled={createContact.isPending}>Add Contact</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

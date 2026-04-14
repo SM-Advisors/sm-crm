@@ -237,7 +237,7 @@ const categoryOptions = [
   { label: "Prospect", value: "prospect" },
   { label: "Center of Influence", value: "center_of_influence" },
   { label: "Former Client", value: "former_client" },
-  { label: "Personal", value: "personal" },
+  { label: "Referral", value: "personal" },
 ];
 
 const interactionTypeOptions = [

@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { KanbanBoard, type KanbanCard, type KanbanStage } from "@/components/KanbanBoard";
 import {
@@ -29,6 +30,18 @@ export default function SalesPipelinePage() {
   const createDeal = useCreateSalesDeal();
   const updateDeal = useUpdateSalesDeal();
   const deleteDeal = useDeleteSalesDeal();
+
+  // Build contacts-by-company lookup for filtering
+  const contactsByCompany = useMemo(() => {
+    const map: Record<string, { id: string; first_name?: string; last_name?: string }[]> = {};
+    for (const c of contacts) {
+      if (c.company_id) {
+        if (!map[c.company_id]) map[c.company_id] = [];
+        map[c.company_id].push({ id: c.id, first_name: c.first_name, last_name: c.last_name });
+      }
+    }
+    return map;
+  }, [contacts]);
 
   const cards: KanbanCard[] = deals.map((d) => ({
     id: d.id,
@@ -136,6 +149,7 @@ export default function SalesPipelinePage() {
         onCardClick={(card) => navigate(`/sales-deals/${card.id}`)}
         companies={companies}
         contacts={contacts}
+        contactsByCompany={contactsByCompany}
       />
     </div>
   );
