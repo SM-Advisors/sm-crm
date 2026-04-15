@@ -11,6 +11,7 @@ import {
 import { useCompanies } from "@/hooks/useCompanies";
 import { useContacts } from "@/hooks/useContacts";
 import { SALES_STAGE_LABELS } from "@/types";
+import { useStageProbabilities } from "@/hooks/useAgent";
 import { toast } from "sonner";
 
 export const ACTIVE_SALES_STAGES: KanbanStage[] = [
@@ -37,6 +38,7 @@ export default function SalesPipelinePage({ stages: stagesProp }: { stages?: Kan
   const updateDeal = useUpdateSalesDeal();
   const deleteDeal = useDeleteSalesDeal();
   const reorderDeals = useReorderSalesDeals();
+  const stageProbabilities = useStageProbabilities();
 
   // Build contacts-by-company lookup for filtering
   const contactsByCompany = useMemo(() => {
@@ -167,6 +169,7 @@ export default function SalesPipelinePage({ stages: stagesProp }: { stages?: Kan
             onError: () => toast.error("Failed to reorder"),
           });
         }}
+        stageProbabilities={stageProbabilities}
         companies={companies}
         contacts={contacts}
         contactsByCompany={contactsByCompany}

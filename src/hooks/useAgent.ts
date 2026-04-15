@@ -46,6 +46,23 @@ export function useUpdateAgentAction() {
   });
 }
 
+const DEFAULT_STAGE_PROBABILITIES: Record<string, number> = {
+  qualification: 10,
+  needs_analysis: 25,
+  proposal: 50,
+  cold_deal: 5,
+  closed_won: 100,
+  closed_lost: 0,
+  service_complete: 100,
+};
+
+export function useStageProbabilities(): Record<string, number> {
+  const { data: configs = [] } = useAgentConfig();
+  const configMap = Object.fromEntries(configs.map((c) => [c.config_key, c.config_value]));
+  const stored = (configMap["stage_probabilities"] as Record<string, number> | undefined) ?? {};
+  return { ...DEFAULT_STAGE_PROBABILITIES, ...stored };
+}
+
 export function useAgentConfig() {
   return useQuery({
     queryKey: ["agent_config"],
@@ -66,8 +83,10 @@ export function useUpdateAgentConfig() {
     mutationFn: async ({ config_key, config_value }: { config_key: string; config_value: Record<string, unknown> }) => {
       const { data, error } = await supabase
         .from("agent_config")
-        .update({ config_value: config_value as unknown as import("@/integrations/supabase/types").Json, updated_at: new Date().toISOString() })
-        .eq("config_key", config_key)
+        .upsert(
+          { config_key, config_value: config_value as unknown as import("@/integrations/supabase/types").Json, updated_at: new Date().toISOString() },
+          { onConflict: "config_key" }
+        )
         .select()
         .single();
       if (error) throw error;
