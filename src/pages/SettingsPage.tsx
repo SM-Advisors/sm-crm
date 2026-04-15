@@ -7,14 +7,14 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useAgentConfig, useUpdateAgentConfig } from "@/hooks/useAgent";
+import { useAgentConfig, useUpdateAgentConfig, useStageColumnOrder } from "@/hooks/useAgent";
 import { useSyncStatus } from "@/hooks/useSyncStatus";
 import { useChangeLog } from "@/hooks/useChangeLog";
 import { toast } from "sonner";
-import { Bot, Zap, Bell, History, BarChart3, Link2 } from "lucide-react";
+import { Bot, Zap, Bell, History, BarChart3, Link2, ArrowUp, ArrowDown } from "lucide-react";
 import { format, formatDistanceToNow, parseISO } from "date-fns";
-import { SALES_STAGE_LABELS } from "@/types";
-import type { SalesStage } from "@/types";
+import { SALES_STAGE_LABELS, DELIVERY_STAGE_LABELS } from "@/types";
+import type { SalesStage, DeliveryStage } from "@/types";
 
 // ─── Default stage probabilities ─────────────────────────────────────────────
 
@@ -30,9 +30,71 @@ const DEFAULT_STAGE_PROBABILITIES: Record<string, number> = {
 
 // ─── Pipeline settings section ───────────────────────────────────────────────
 
+const DEFAULT_ACTIVE_ORDER: SalesStage[] = ["qualification", "needs_analysis", "proposal"];
+const DEFAULT_ARCHIVED_ORDER: SalesStage[] = ["cold_deal", "closed_won", "closed_lost", "service_complete"];
+const DEFAULT_DELIVERY_ORDER: DeliveryStage[] = ["onboarding", "in_progress", "review", "completed", "on_hold"];
+
+function StageOrderList({
+  pipelineKey,
+  stages,
+  labels,
+  columnOrder,
+  onSave,
+}: {
+  pipelineKey: string;
+  stages: string[];
+  labels: Record<string, string>;
+  columnOrder: Record<string, string[]>;
+  onSave: (key: string, order: string[]) => void;
+}) {
+  const currentOrder = columnOrder[pipelineKey] ?? stages;
+
+  function move(index: number, direction: -1 | 1) {
+    const newOrder = [...currentOrder];
+    const target = index + direction;
+    if (target < 0 || target >= newOrder.length) return;
+    [newOrder[index], newOrder[target]] = [newOrder[target], newOrder[index]];
+    onSave(pipelineKey, newOrder);
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      {currentOrder.map((stageId, index) => (
+        <div
+          key={stageId}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-border bg-background"
+        >
+          <span className="text-sm flex-1">{labels[stageId] ?? stageId}</span>
+          <div className="flex gap-0.5">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-6 w-6"
+              disabled={index === 0}
+              onClick={() => move(index, -1)}
+            >
+              <ArrowUp className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-6 w-6"
+              disabled={index === currentOrder.length - 1}
+              onClick={() => move(index, 1)}
+            >
+              <ArrowDown className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function PipelineSettings() {
   const { data: configs = [], isLoading } = useAgentConfig();
   const updateConfig = useUpdateAgentConfig();
+  const columnOrder = useStageColumnOrder();
 
   const configMap = Object.fromEntries(configs.map((c) => [c.config_key, c.config_value]));
   const stored = (configMap["stage_probabilities"] as Record<string, number> | undefined) ?? {};
@@ -44,6 +106,17 @@ function PipelineSettings() {
       { config_key: "stage_probabilities", config_value: updated },
       {
         onSuccess: () => toast.success("Probability updated"),
+        onError: () => toast.error("Failed to save"),
+      }
+    );
+  }
+
+  function saveColumnOrder(pipelineKey: string, order: string[]) {
+    const updated = { ...columnOrder, [pipelineKey]: order };
+    updateConfig.mutate(
+      { config_key: "stage_column_order", config_value: updated as Record<string, unknown> },
+      {
+        onSuccess: () => toast.success("Column order updated"),
         onError: () => toast.error("Failed to save"),
       }
     );
@@ -119,6 +192,47 @@ function PipelineSettings() {
                 </div>
               ))}
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Stage Column Order</CardTitle>
+          <CardDescription>
+            Reorder the columns (stages) shown on each pipeline's kanban board. Use the arrows to move stages left or right.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-5">
+          <div>
+            <p className="text-sm font-medium mb-3">Active Pipeline</p>
+            <StageOrderList
+              pipelineKey="sales_active"
+              stages={DEFAULT_ACTIVE_ORDER}
+              labels={SALES_STAGE_LABELS}
+              columnOrder={columnOrder}
+              onSave={saveColumnOrder}
+            />
+          </div>
+          <div>
+            <p className="text-sm font-medium mb-3">Archived Pipeline</p>
+            <StageOrderList
+              pipelineKey="sales_archived"
+              stages={DEFAULT_ARCHIVED_ORDER}
+              labels={SALES_STAGE_LABELS}
+              columnOrder={columnOrder}
+              onSave={saveColumnOrder}
+            />
+          </div>
+          <div>
+            <p className="text-sm font-medium mb-3">Delivery Pipeline</p>
+            <StageOrderList
+              pipelineKey="delivery"
+              stages={DEFAULT_DELIVERY_ORDER}
+              labels={DELIVERY_STAGE_LABELS}
+              columnOrder={columnOrder}
+              onSave={saveColumnOrder}
+            />
           </div>
         </CardContent>
       </Card>

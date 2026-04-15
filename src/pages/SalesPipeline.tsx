@@ -11,7 +11,7 @@ import {
 import { useCompanies } from "@/hooks/useCompanies";
 import { useContacts } from "@/hooks/useContacts";
 import { SALES_STAGE_LABELS } from "@/types";
-import { useStageProbabilities } from "@/hooks/useAgent";
+import { useStageProbabilities, useSortedStages } from "@/hooks/useAgent";
 import { toast } from "sonner";
 
 export const ACTIVE_SALES_STAGES: KanbanStage[] = [
@@ -29,7 +29,10 @@ export const ARCHIVED_SALES_STAGES: KanbanStage[] = [
 
 
 export default function SalesPipelinePage({ stages: stagesProp }: { stages?: KanbanStage[] } = {}) {
-  const stages = stagesProp ?? ACTIVE_SALES_STAGES;
+  const rawStages = stagesProp ?? ACTIVE_SALES_STAGES;
+  const isArchived = rawStages === ARCHIVED_SALES_STAGES;
+  const pipelineKey = isArchived ? "sales_archived" : "sales_active";
+  const stages = useSortedStages(rawStages, pipelineKey);
   const navigate = useNavigate();
   const { data: deals = [], isLoading } = useSalesDeals();
   const { data: companies = [] } = useCompanies();
@@ -53,8 +56,6 @@ export default function SalesPipelinePage({ stages: stagesProp }: { stages?: Kan
   }, [contacts]);
 
   const stageIds = new Set(stages.map((s) => s.id));
-
-  const isArchived = stages === ARCHIVED_SALES_STAGES;
 
   const cards: KanbanCard[] = deals
     .filter((d) => stageIds.has(d.stage))
@@ -151,7 +152,7 @@ export default function SalesPipelinePage({ stages: stagesProp }: { stages?: Kan
     <div className="flex flex-col gap-6 p-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">
-          {stages === ARCHIVED_SALES_STAGES ? "Archived Pipeline" : "Sales Pipeline"}
+          {isArchived ? "Archived Pipeline" : "Sales Pipeline"}
         </h1>
         <p className="text-sm text-muted-foreground mt-0.5">{cards.length} deals</p>
       </div>

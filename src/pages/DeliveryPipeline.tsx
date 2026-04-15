@@ -9,6 +9,7 @@ import {
 import { useCompanies } from "@/hooks/useCompanies";
 import { useContacts } from "@/hooks/useContacts";
 import { DELIVERY_STAGE_LABELS } from "@/types";
+import { useSortedStages } from "@/hooks/useAgent";
 import { toast } from "sonner";
 
 const DELIVERY_STAGES: KanbanStage[] = [
@@ -21,6 +22,7 @@ const DELIVERY_STAGES: KanbanStage[] = [
 
 export default function DeliveryPipelinePage() {
   const navigate = useNavigate();
+  const stages = useSortedStages(DELIVERY_STAGES, "delivery");
   const { data: engagements = [], isLoading } = useDeliveryEngagements();
   const { data: companies = [] } = useCompanies();
   const { data: contacts = [] } = useContacts();
@@ -88,7 +90,7 @@ export default function DeliveryPipelinePage() {
 
       <KanbanBoard
         cards={cards}
-        stages={DELIVERY_STAGES}
+        stages={stages}
         onCardMove={handleCardMove}
         onCreate={handleCreate}
         onCardClick={(card) => navigate(`/companies/${card.company?.id ?? ""}`)}
