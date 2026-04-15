@@ -79,6 +79,7 @@ interface KanbanBoardProps {
   companies?: { id: string; name: string }[];
   contacts?: { id: string; first_name?: string; last_name?: string; company_id?: string | null }[];
   contactsByCompany?: Record<string, { id: string; first_name?: string; last_name?: string }[]>;
+  stageProbabilities?: Record<string, number>;
   valueLabelSuffix?: string;
 }
 
@@ -185,11 +186,6 @@ function KanbanCardItem({
                     </div>
                   );
                 })()}
-                {card.probability != null && (
-                  <Badge variant="outline" className="text-xs w-fit">
-                    {card.probability}% likely
-                  </Badge>
-                )}
               </div>
             </CardContent>
           </Card>
@@ -207,19 +203,21 @@ function KanbanColumn({
   onCardClick,
   onEditClick,
   onAddClick,
+  probability,
 }: {
   stage: KanbanStage;
   cards: KanbanCard[];
   onCardClick?: (card: KanbanCard) => void;
   onEditClick?: (card: KanbanCard) => void;
   onAddClick: (stageId: string) => void;
+  probability?: number;
 }) {
   const totalValue = cards.reduce((sum, c) => sum + (c.value ?? c.contract_value ?? 0), 0);
 
   return (
     <div className="flex flex-col w-64 shrink-0 max-h-[calc(100vh-200px)]">
       {/* Column header */}
-      <div className="flex items-center justify-between mb-2 px-1">
+      <div className="flex items-center justify-between mb-1 px-1">
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full ${stage.color ?? "bg-muted-foreground"}`} />
           <span className="text-sm font-medium">{stage.label}</span>
@@ -237,11 +235,19 @@ function KanbanColumn({
         </Button>
       </div>
 
-      {totalValue > 0 && (
-        <p className="text-xs text-muted-foreground px-1 mb-2">
-          ${totalValue.toLocaleString()}
-        </p>
-      )}
+      <div className="flex items-center gap-2 px-1 mb-2">
+        {probability != null && (
+          <span className="text-[11px] text-muted-foreground">{probability}% likely</span>
+        )}
+        {probability != null && totalValue > 0 && (
+          <span className="text-[11px] text-muted-foreground">·</span>
+        )}
+        {totalValue > 0 && (
+          <span className="text-[11px] text-muted-foreground">
+            ${totalValue.toLocaleString()}
+          </span>
+        )}
+      </div>
 
       {/* Drop zone */}
       <Droppable droppableId={stage.id}>
@@ -600,6 +606,7 @@ export function KanbanBoard({
   companies,
   contacts,
   contactsByCompany,
+  stageProbabilities,
 }: KanbanBoardProps) {
   const [addDialogStage, setAddDialogStage] = useState<string | null>(null);
   const [editingCard, setEditingCard] = useState<KanbanCard | null>(null);
@@ -676,6 +683,7 @@ export function KanbanBoard({
                 onCardClick={onCardClick}
                 onEditClick={(onUpdate || onDelete) ? (card) => setEditingCard(card) : undefined}
                 onAddClick={(stageId) => setAddDialogStage(stageId)}
+                probability={stageProbabilities?.[stage.id]}
               />
             ))}
           </div>
