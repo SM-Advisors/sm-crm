@@ -71,6 +71,7 @@ interface KanbanBoardProps {
   cards: KanbanCard[];
   stages: KanbanStage[];
   onCardMove: (cardId: string, newStage: string, newOrder: number) => void;
+  onReorder?: (updates: { id: string; stage: string; stage_order: number }[]) => void;
   onCreate?: (data: DealFormData) => void;
   onUpdate?: (id: string, data: DealFormData) => void;
   onDelete?: (id: string) => void;
@@ -591,6 +592,7 @@ export function KanbanBoard({
   cards,
   stages,
   onCardMove,
+  onReorder,
   onCreate,
   onUpdate,
   onDelete,
@@ -618,9 +620,47 @@ export function KanbanBoard({
     if (!destination) return;
     if (destination.droppableId === source.droppableId && destination.index === source.index) return;
 
-    const newStage = destination.droppableId;
-    const newOrder = destination.index;
-    onCardMove(draggableId, newStage, newOrder);
+    const srcStage = source.droppableId;
+    const dstStage = destination.droppableId;
+
+    if (onReorder) {
+      // Build new ordered lists for affected columns
+      const srcList = [...(byStage[srcStage] ?? [])];
+      const dstList = srcStage === dstStage ? srcList : [...(byStage[dstStage] ?? [])];
+
+      // Remove card from source
+      const [moved] = srcList.splice(source.index, 1);
+      if (!moved) return;
+
+      // Insert into destination
+      if (srcStage === dstStage) {
+        srcList.splice(destination.index, 0, moved);
+      } else {
+        dstList.splice(destination.index, 0, moved);
+      }
+
+      // Build batch update for all cards that need new stage_order
+      const updates: { id: string; stage: string; stage_order: number }[] = [];
+
+      srcList.forEach((card, i) => {
+        if (card.stage !== srcStage || card.stage_order !== i) {
+          updates.push({ id: card.id, stage: srcStage, stage_order: i });
+        }
+      });
+
+      if (srcStage !== dstStage) {
+        dstList.forEach((card, i) => {
+          updates.push({ id: card.id, stage: dstStage, stage_order: i });
+        });
+      }
+
+      if (updates.length > 0) {
+        onReorder(updates);
+      }
+    } else {
+      // Fallback: single-card move (legacy)
+      onCardMove(draggableId, dstStage, destination.index);
+    }
   }
 
   return (

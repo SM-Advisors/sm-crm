@@ -98,6 +98,24 @@ export function useUpdateSalesDeal() {
   });
 }
 
+export function useReorderSalesDeals() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (updates: { id: string; stage: string; stage_order: number }[]) => {
+      const now = new Date().toISOString();
+      await Promise.all(
+        updates.map(({ id, stage, stage_order }) =>
+          supabase
+            .from("sales_deals")
+            .update({ stage, stage_order, updated_at: now } as Record<string, unknown>)
+            .eq("id", id)
+        )
+      );
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["sales_deals"] }),
+  });
+}
+
 export function useDeleteSalesDeal() {
   const qc = useQueryClient();
   return useMutation({
@@ -131,6 +149,24 @@ export function useCreateDeliveryEngagement() {
       const { data, error } = await supabase.from("delivery_engagements").insert(rest as { title: string }).select().single();
       if (error) throw error;
       return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["delivery_engagements"] }),
+  });
+}
+
+export function useReorderDeliveryEngagements() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (updates: { id: string; stage: string; stage_order: number }[]) => {
+      const now = new Date().toISOString();
+      await Promise.all(
+        updates.map(({ id, stage, stage_order }) =>
+          supabase
+            .from("delivery_engagements")
+            .update({ stage, stage_order, updated_at: now } as Record<string, unknown>)
+            .eq("id", id)
+        )
+      );
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["delivery_engagements"] }),
   });
