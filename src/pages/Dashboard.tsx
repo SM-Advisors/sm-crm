@@ -1,19 +1,19 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { formatDistanceToNow, parseISO, isThisWeek } from "date-fns";
+import { formatDistanceToNow, parseISO } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   DollarSign, Target, TrendingUp, FileText,
-  Users, ClipboardList, Mail, Phone, UserPlus,
+  Users, ClipboardList, Mail, Phone,
   Check, X, Bot, Activity,
 } from "lucide-react";
 import { useContacts } from "@/hooks/useContacts";
 import { useInvoices } from "@/hooks/useInvoices";
 import { useSalesDeals } from "@/hooks/useDeals";
 import { useInteractions } from "@/hooks/useInteractions";
-import { useAgentRuns, useUpdateAgentAction } from "@/hooks/useAgent";
+import { useAgentRuns, useUpdateAgentAction, useStageProbabilities } from "@/hooks/useAgent";
 import type { AgentAction } from "@/types";
 import { INTERACTION_TYPE_LABELS } from "@/types";
 import { toast } from "sonner";
@@ -226,23 +226,23 @@ function RecentActivityCard() {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-// Active stages: proposals still in pipeline (not closed, not delivered)
-const PROPOSAL_STAGES = ["qualification", "needs_analysis", "proposal", "cold_deal"];
-// Executing: won deals still being delivered
-const EXECUTING_STAGES = ["closed_won"];
+// Active stages: deals in the sales pipeline (not archived)
+const ACTIVE_STAGES = ["qualification", "needs_analysis", "proposal"];
+// Executed: won deals
+const EXECUTED_STAGES = ["closed_won"];
 
 function ActiveDealsCard({ deals }: { deals: import("@/types").SalesDeal[] }) {
   const navigate = useNavigate();
-  const [view, setView] = useState<"proposals" | "executing">("proposals");
+  const [view, setView] = useState<"proposals" | "executed">("proposals");
 
-  const proposalDeals = deals.filter((d) => PROPOSAL_STAGES.includes(d.stage));
-  const executingDeals = deals.filter((d) => EXECUTING_STAGES.includes(d.stage));
-  const shown = view === "proposals" ? proposalDeals : executingDeals;
+  const proposalDeals = deals.filter((d) => ACTIVE_STAGES.includes(d.stage));
+  const executedDeals = deals.filter((d) => EXECUTED_STAGES.includes(d.stage));
+  const shown = view === "proposals" ? proposalDeals : executedDeals;
 
   return (
     <Card
       className="border border-border shadow-sm dark:shadow-none cursor-pointer hover:bg-muted/30 transition-colors"
-      onClick={() => navigate("/sales-pipeline")}
+      onClick={() => navigate("/pipeline")}
     >
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
@@ -261,14 +261,14 @@ function ActiveDealsCard({ deals }: { deals: import("@/types").SalesDeal[] }) {
                 Proposals
               </button>
               <button
-                className={`text-[10px] px-1.5 py-0.5 rounded ${view === "executing" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
-                onClick={() => setView("executing")}
+                className={`text-[10px] px-1.5 py-0.5 rounded ${view === "executed" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+                onClick={() => setView("executed")}
               >
-                Executing
+                Executed
               </button>
             </div>
             <p className="text-lg font-semibold text-foreground">
-              {shown.length} {view === "proposals" ? "Open" : "Active"}
+              {shown.length} {view === "proposals" ? "Open" : "Won"}
             </p>
             <p className="text-xs text-muted-foreground">
               ${shown.reduce((s, d) => s + (d.value ?? 0), 0).toLocaleString()}
@@ -286,12 +286,17 @@ export default function Dashboard() {
   const { data: invoices = [] } = useInvoices();
   const { data: deals = [] } = useSalesDeals();
   const { data: runs = [] } = useAgentRuns();
+  const stageProbabilities = useStageProbabilities();
 
   const metrics = useMemo(() => {
-    const activeDeals = deals.filter((d) => !["closed_won", "closed_lost", "service_complete"].includes(d.stage));
+    // Only active sales pipeline stages (not archived)
+    const activeDeals = deals.filter((d) => ACTIVE_STAGES.includes(d.stage));
 
     const totalPipeline = activeDeals.reduce((s, d) => s + (d.value ?? 0), 0);
-    const weightedPipeline = activeDeals.reduce((s, d) => s + ((d.value ?? 0) * ((d.probability ?? 50) / 100)), 0);
+    const weightedPipeline = activeDeals.reduce(
+      (s, d) => s + ((d.value ?? 0) * ((stageProbabilities[d.stage] ?? 0) / 100)),
+      0
+    );
 
     const outstanding = invoices
       .filter((i) => i.status !== "paid" && i.status !== "voided")
@@ -307,7 +312,7 @@ export default function Dashboard() {
       outstanding,
       pendingDrafts,
     };
-  }, [deals, invoices, runs]);
+  }, [deals, invoices, runs, stageProbabilities]);
 
   return (
     <div className="space-y-6 p-6">
@@ -319,13 +324,13 @@ export default function Dashboard() {
           label="Total Pipeline"
           value={`$${metrics.totalPipeline.toLocaleString()}`}
           icon={DollarSign}
-          onClick={() => navigate("/sales-pipeline")}
+          onClick={() => navigate("/pipeline")}
         />
         <MetricCard
           label="Weighted Pipeline"
           value={`$${Math.round(metrics.weightedPipeline).toLocaleString()}`}
           icon={Target}
-          onClick={() => navigate("/sales-pipeline")}
+          onClick={() => navigate("/pipeline")}
         />
         <MetricCard
           label="Total Contacts"
