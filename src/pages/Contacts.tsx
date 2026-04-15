@@ -1011,7 +1011,7 @@ export default function ContactsPage() {
             exportName="contacts"
             toExportRow={toExportRow}
             searchPlaceholder="Search contacts…"
-            defaultPageSize={100}
+            showPagination={false}
           />
         </>
       )}

@@ -10,13 +10,15 @@ export function useCompanies() {
         .from("companies")
         .select(`
           *,
-          company_tags(tag:tags(id, name, color))
+          company_tags(tag:tags(id, name, color)),
+          contacts(count)
         `)
         .order("name", { ascending: true });
       if (error) throw error;
       return (data as unknown as Record<string, unknown>[]).map((c) => ({
         ...c,
         tags: ((c.company_tags as { tag: unknown }[] | null) ?? []).map((ct) => ct.tag),
+        contact_count: ((c.contacts as { count: number }[] | null) ?? [])[0]?.count ?? 0,
       })) as unknown as Company[];
     },
   });

@@ -18,6 +18,9 @@ import {
   Trash2,
   MapPin,
   Snowflake,
+  Bell,
+  Check,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +49,7 @@ import { useContact, useUpdateContact, useDeleteContact, useToggleContactCold } 
 import { useLogInteraction, useUpdateInteraction } from "@/hooks/useInteractions";
 import { useCreateSalesDeal } from "@/hooks/useDeals";
 import { useCompanies } from "@/hooks/useCompanies";
+import { useReminders, useCreateReminder, useCompleteReminder, useDeleteReminder } from "@/hooks/useReminders";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import type { ContactWithDetails, InteractionType, Interaction } from "@/types";
@@ -960,6 +964,229 @@ function FilesTab({ contact }: { contact: ContactWithDetails }) {
   );
 }
 
+// Reminders tab ──────────────────────────────────────────────────────────────
+
+function RemindersTab({ contact }: { contact: ContactWithDetails }) {
+  const { data: reminders = [], isLoading } = useReminders(contact.id);
+  const createReminder = useCreateReminder();
+  const completeReminder = useCompleteReminder();
+  const deleteReminder = useDeleteReminder();
+  const [open, setOpen] = useState(false);
+  const [showCompleted, setShowCompleted] = useState(false);
+  const [form, setForm] = useState({
+    title: "",
+    description: "",
+    remind_at: "",
+  });
+
+  function handleCreate() {
+    if (!form.title.trim()) {
+      toast.error("Title is required");
+      return;
+    }
+    if (!form.remind_at) {
+      toast.error("Reminder date/time is required");
+      return;
+    }
+    createReminder.mutate(
+      {
+        contact_id: contact.id,
+        company_id: contact.company_id ?? undefined,
+        title: form.title.trim(),
+        description: form.description.trim() || undefined,
+        remind_at: new Date(form.remind_at).toISOString(),
+      },
+      {
+        onSuccess: () => {
+          toast.success("Reminder created");
+          setForm({ title: "", description: "", remind_at: "" });
+          setOpen(false);
+        },
+        onError: () => toast.error("Failed to create reminder"),
+      }
+    );
+  }
+
+  const pending = reminders.filter((r) => !r.is_completed);
+  const completed = reminders.filter((r) => r.is_completed);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
+        Loading reminders…
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {completed.length > 0 && (
+            <button
+              className="text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => setShowCompleted(!showCompleted)}
+            >
+              {showCompleted ? "Hide" : "Show"} completed ({completed.length})
+            </button>
+          )}
+        </div>
+        <Button size="sm" onClick={() => setOpen(true)} className="gap-1.5">
+          <Plus className="h-4 w-4" />
+          Add Reminder
+        </Button>
+      </div>
+
+      {pending.length === 0 && !showCompleted ? (
+        <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
+          No upcoming reminders.
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {pending.map((r) => {
+            const isPast = new Date(r.remind_at) < new Date();
+            return (
+              <Card key={r.id} className={isPast ? "border-amber-300 dark:border-amber-700" : ""}>
+                <CardContent className="pt-4 flex items-start gap-3">
+                  <button
+                    className="mt-0.5 shrink-0 h-5 w-5 rounded border border-muted-foreground/40 flex items-center justify-center hover:border-primary hover:bg-primary/10 transition-colors"
+                    title="Mark complete"
+                    onClick={() =>
+                      completeReminder.mutate(
+                        { id: r.id, contact_id: contact.id },
+                        {
+                          onSuccess: () => toast.success("Reminder completed"),
+                          onError: () => toast.error("Failed to complete"),
+                        }
+                      )
+                    }
+                  >
+                    <Check className="h-3 w-3 opacity-0 hover:opacity-100 text-primary" />
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">{r.title}</p>
+                    {r.description && (
+                      <p className="text-sm text-muted-foreground mt-0.5">{r.description}</p>
+                    )}
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <Clock className="h-3 w-3 text-muted-foreground" />
+                      <span className={`text-xs ${isPast ? "text-amber-600 dark:text-amber-400 font-medium" : "text-muted-foreground"}`}>
+                        {formatDateTime(r.remind_at)}
+                        {isPast && " (overdue)"}
+                      </span>
+                      {r.sms_sent && (
+                        <Badge variant="outline" className="text-[10px] ml-1">SMS sent</Badge>
+                      )}
+                    </div>
+                  </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
+                    onClick={() =>
+                      deleteReminder.mutate(
+                        { id: r.id, contact_id: contact.id },
+                        {
+                          onSuccess: () => toast.success("Reminder deleted"),
+                          onError: () => toast.error("Failed to delete"),
+                        }
+                      )
+                    }
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })}
+
+          {showCompleted && completed.map((r) => (
+            <Card key={r.id} className="opacity-60">
+              <CardContent className="pt-4 flex items-start gap-3">
+                <div className="mt-0.5 shrink-0 h-5 w-5 rounded border border-primary bg-primary/10 flex items-center justify-center">
+                  <Check className="h-3 w-3 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium line-through">{r.title}</p>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <Clock className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">
+                      {formatDateTime(r.remind_at)}
+                    </span>
+                    {r.completed_at && (
+                      <span className="text-xs text-muted-foreground ml-1">
+                        — completed {formatDate(r.completed_at)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
+                  onClick={() =>
+                    deleteReminder.mutate(
+                      { id: r.id, contact_id: contact.id },
+                      {
+                        onSuccess: () => toast.success("Reminder deleted"),
+                        onError: () => toast.error("Failed to delete"),
+                      }
+                    )
+                  }
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Reminder</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label>Title *</Label>
+              <Input
+                placeholder="e.g., Follow up on proposal"
+                value={form.title}
+                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                autoFocus
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Description</Label>
+              <Textarea
+                placeholder="Optional details…"
+                value={form.description}
+                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                rows={3}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Remind At *</Label>
+              <Input
+                type="datetime-local"
+                value={form.remind_at}
+                onChange={(e) => setForm((f) => ({ ...f, remind_at: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button onClick={handleCreate} disabled={createReminder.isPending}>
+              Create Reminder
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 // ─── Edit contact dialog ──────────────────────────────────────────────────────
 
 function EditContactDialog({
@@ -1355,6 +1582,10 @@ export default function ContactDetailPage() {
                 <Briefcase className="h-3.5 w-3.5" />
                 Pipelines
               </TabsTrigger>
+              <TabsTrigger value="reminders" className="gap-1.5">
+                <Bell className="h-3.5 w-3.5" />
+                Reminders
+              </TabsTrigger>
               <TabsTrigger value="files" className="gap-1.5">
                 <Folder className="h-3.5 w-3.5" />
                 Files
@@ -1377,6 +1608,9 @@ export default function ContactDetailPage() {
             </TabsContent>
             <TabsContent value="pipelines" className="p-6 m-0">
               <PipelinesTab contact={contact} />
+            </TabsContent>
+            <TabsContent value="reminders" className="p-6 m-0">
+              <RemindersTab contact={contact} />
             </TabsContent>
             <TabsContent value="files" className="p-6 m-0">
               <FilesTab contact={contact} />

@@ -11,7 +11,7 @@ import { useAgentConfig, useUpdateAgentConfig } from "@/hooks/useAgent";
 import { useSyncStatus } from "@/hooks/useSyncStatus";
 import { useChangeLog } from "@/hooks/useChangeLog";
 import { toast } from "sonner";
-import { Bot, Zap, RefreshCcw, Bell, History } from "lucide-react";
+import { Bot, Zap, Bell, History } from "lucide-react";
 import { format, formatDistanceToNow, parseISO } from "date-fns";
 
 // ─── Agent config section ─────────────────────────────────────────────────────
@@ -25,7 +25,6 @@ function AgentSettings() {
 
   const schedule = configMap["schedule"] as any ?? {};
   const outreach = configMap["outreach_rules"] as any ?? {};
-  const research = configMap["research"] as any ?? {};
   const sms = configMap["sms"] as any ?? {};
 
   function saveConfig(key: string, value: Record<string, unknown>) {
@@ -151,52 +150,6 @@ function AgentSettings() {
         </CardContent>
       </Card>
 
-      {/* Research */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <RefreshCcw className="h-4 w-4" />
-            Perplexity Research
-          </CardTitle>
-          <CardDescription>
-            When and how the agent uses Perplexity to research contacts before drafting outreach.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <div className="flex items-center gap-3">
-            <Switch
-              checked={research.enabled ?? true}
-              onCheckedChange={(v) =>
-                saveConfig("research", { ...research, enabled: v })
-              }
-            />
-            <div>
-              <Label>Enable Perplexity Research</Label>
-              <p className="text-xs text-muted-foreground">
-                When enabled, the agent will research prospects with recent activity before drafting.
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label>Research Cache TTL (days)</Label>
-            <div className="flex items-center gap-2">
-              <Input
-                type="number"
-                className="w-24"
-                defaultValue={research.cache_ttl_days ?? 7}
-                onBlur={(e) =>
-                  saveConfig("research", {
-                    ...research,
-                    cache_ttl_days: parseInt(e.target.value),
-                  })
-                }
-              />
-              <span className="text-sm text-muted-foreground">days before re-researching a contact</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* SMS */}
       <Card>
         <CardHeader>
@@ -252,14 +205,7 @@ const INTEGRATION_META: Record<string, { label: string; description: string; sta
   },
   andrea_agent: {
     label: "Andrea Agent",
-    description: "Daily autonomous outreach run powered by Claude + Perplexity via n8n.",
-  },
-  perplexity: {
-    label: "Perplexity API",
-    description: "Real-time research on high-priority contacts before outreach drafts.",
-    static: true,
-    staticBadge: "Active",
-    staticCls: "bg-blue-100 text-blue-700 border-blue-200",
+    description: "Daily autonomous outreach run powered by Claude via n8n.",
   },
   twilio: {
     label: "Twilio SMS",

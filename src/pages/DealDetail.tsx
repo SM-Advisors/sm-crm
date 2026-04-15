@@ -100,7 +100,7 @@ export default function DealDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-3">
         <p className="text-muted-foreground">Deal not found.</p>
-        <Button variant="outline" onClick={() => navigate("/sales-pipeline")}>
+        <Button variant="outline" onClick={() => navigate("/pipeline")}>
           Back to Pipeline
         </Button>
       </div>
@@ -270,10 +270,10 @@ export default function DealDetailPage() {
       <div>
         <button
           className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-4"
-          onClick={() => navigate("/sales-pipeline")}
+          onClick={() => navigate("/pipeline")}
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          Sales Pipeline
+          Pipeline
         </button>
 
         <div className="flex items-start justify-between gap-4">

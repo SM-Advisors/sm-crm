@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type DataTableColumn } from "@/components/DataTable";
@@ -14,13 +14,116 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useCompanies, useCreateCompany, useDeleteCompany } from "@/hooks/useCompanies";
+import { useCompanies, useCreateCompany, useUpdateCompany } from "@/hooks/useCompanies";
 import type { Company } from "@/types";
 import { toast } from "sonner";
 
+// ─── Inline edit cell ────────────────────────────────────────────────────────
+
+function InlineEditCell({
+  value,
+  companyId,
+  field,
+  onSave,
+  isLink,
+}: {
+  value: string | null | undefined;
+  companyId: string;
+  field: string;
+  onSave: (id: string, field: string, value: string) => void;
+  isLink?: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value ?? "");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [editing]);
+
+  function commit() {
+    const trimmed = draft.trim();
+    if (trimmed !== (value ?? "")) {
+      onSave(companyId, field, trimmed);
+    }
+    setEditing(false);
+  }
+
+  function cancel() {
+    setDraft(value ?? "");
+    setEditing(false);
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1">
+        <Input
+          ref={inputRef}
+          className="h-7 text-sm px-1.5 py-0"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commit();
+            if (e.key === "Escape") cancel();
+          }}
+          onBlur={commit}
+        />
+      </div>
+    );
+  }
+
+  if (isLink && value) {
+    const href = value.startsWith("http") ? value : `https://${value}`;
+    return (
+      <div className="group flex items-center gap-1.5">
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary hover:underline truncate"
+        >
+          {value.replace(/^https?:\/\//, "")}
+        </a>
+        <button
+          className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground transition-opacity shrink-0"
+          onClick={(e) => {
+            e.stopPropagation();
+            setDraft(value ?? "");
+            setEditing(true);
+          }}
+        >
+          <Pencil className="h-3 w-3" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="group flex items-center gap-1.5">
+      <span className={value ? "" : "text-muted-foreground"}>{value || "—"}</span>
+      <button
+        className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground transition-opacity shrink-0"
+        onClick={(e) => {
+          e.stopPropagation();
+          setDraft(value ?? "");
+          setEditing(true);
+        }}
+      >
+        <Pencil className="h-3 w-3" />
+      </button>
+    </div>
+  );
+}
+
 // ─── Column definitions ───────────────────────────────────────────────────────
 
-function buildColumns(navigate: ReturnType<typeof useNavigate>): DataTableColumn<Company>[] {
+function buildColumns(
+  navigate: ReturnType<typeof useNavigate>,
+  onSave: (id: string, field: string, value: string) => void
+): DataTableColumn<Company>[] {
   return [
     {
       accessorKey: "name",
@@ -39,53 +142,72 @@ function buildColumns(navigate: ReturnType<typeof useNavigate>): DataTableColumn
       accessorKey: "industry",
       header: "Industry",
       filterMeta: { type: "text" },
-      cell: ({ getValue }) =>
-        (getValue() as string) || <span className="text-muted-foreground">—</span>,
+      cell: ({ row }) => (
+        <InlineEditCell
+          value={row.original.industry}
+          companyId={row.original.id}
+          field="industry"
+          onSave={onSave}
+        />
+      ),
     },
     {
       accessorKey: "website",
       header: "Website",
       filterMeta: { type: "text" },
-      cell: ({ getValue }) => {
-        const url = getValue() as string | undefined;
-        if (!url) return <span className="text-muted-foreground">—</span>;
-        return (
-          <a
-            href={url.startsWith("http") ? url : `https://${url}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-primary hover:underline"
-          >
-            {url.replace(/^https?:\/\//, "")}
-          </a>
-        );
-      },
+      cell: ({ row }) => (
+        <InlineEditCell
+          value={row.original.website}
+          companyId={row.original.id}
+          field="website"
+          onSave={onSave}
+          isLink
+        />
+      ),
     },
     {
       accessorKey: "city",
       header: "City",
       filterMeta: { type: "text" },
-      cell: ({ getValue }) =>
-        (getValue() as string) || <span className="text-muted-foreground">—</span>,
+      cell: ({ row }) => (
+        <InlineEditCell
+          value={row.original.city}
+          companyId={row.original.id}
+          field="city"
+          onSave={onSave}
+        />
+      ),
     },
     {
       accessorKey: "state",
       header: "State",
       filterMeta: { type: "text" },
-      cell: ({ getValue }) =>
-        (getValue() as string) || <span className="text-muted-foreground">—</span>,
+      cell: ({ row }) => (
+        <InlineEditCell
+          value={row.original.state}
+          companyId={row.original.id}
+          field="state"
+          onSave={onSave}
+        />
+      ),
     },
     {
       accessorKey: "phone",
       header: "Phone",
       filterMeta: { type: "text" },
-      cell: ({ getValue }) =>
-        (getValue() as string) || <span className="text-muted-foreground">—</span>,
+      cell: ({ row }) => (
+        <InlineEditCell
+          value={row.original.phone}
+          companyId={row.original.id}
+          field="phone"
+          onSave={onSave}
+        />
+      ),
     },
     {
       id: "contact_count",
       header: "Contacts",
-      accessorFn: (row) => (row as any).contact_count ?? 0,
+      accessorFn: (row) => (row as Company & { contact_count?: number }).contact_count ?? 0,
       filterMeta: { type: "number" },
       cell: ({ getValue }) => (
         <span className="tabular-nums">{getValue() as number}</span>
@@ -94,10 +216,10 @@ function buildColumns(navigate: ReturnType<typeof useNavigate>): DataTableColumn
     {
       id: "tags",
       header: "Tags",
-      accessorFn: (row) => ((row as any).tags ?? []).map((t: any) => t.name).join(", "),
+      accessorFn: (row) => ((row as Company & { tags?: { name: string }[] }).tags ?? []).map((t) => t.name).join(", "),
       filterMeta: { type: "text" },
       cell: ({ row }) => {
-        const tags: any[] = (row.original as any).tags ?? [];
+        const tags = ((row.original as Company & { tags?: { id: string; name: string; color: string }[] }).tags ?? []);
         if (!tags.length) return <span className="text-muted-foreground">—</span>;
         return (
           <div className="flex flex-wrap gap-1">
@@ -127,7 +249,7 @@ function toExportRow(c: Company): Record<string, unknown> {
     City: c.city ?? "",
     State: c.state ?? "",
     Phone: c.phone ?? "",
-    Tags: ((c as any).tags ?? []).map((t: any) => t.name).join("; "),
+    Tags: ((c as Company & { tags?: { name: string }[] }).tags ?? []).map((t) => t.name).join("; "),
   };
 }
 
@@ -280,10 +402,24 @@ function AlphabetBar({ active, onChange }: { active: string | null; onChange: (l
 export default function CompaniesPage() {
   const navigate = useNavigate();
   const { data: companies = [], isLoading } = useCompanies();
-  const columns = useMemo(() => buildColumns(navigate), [navigate]);
+  const updateCompany = useUpdateCompany();
   const [createOpen, setCreateOpen] = useState(false);
   const [letterFilter, setLetterFilter] = useState<string | null>(null);
-  const deleteCompany = useDeleteCompany();
+
+  function handleInlineSave(id: string, field: string, value: string) {
+    updateCompany.mutate(
+      { id, [field]: value || null } as Partial<Company> & { id: string },
+      {
+        onSuccess: () => toast.success("Updated"),
+        onError: () => toast.error("Failed to update"),
+      }
+    );
+  }
+
+  const columns = useMemo(
+    () => buildColumns(navigate, handleInlineSave),
+    [navigate]
+  );
 
   const filtered = useMemo(() => {
     if (!letterFilter) return companies;
@@ -318,11 +454,7 @@ export default function CompaniesPage() {
             exportName="companies"
             toExportRow={toExportRow}
             searchPlaceholder="Search companies…"
-            onBulkDelete={(ids) => {
-              Promise.all(ids.map((id) => deleteCompany.mutateAsync(id)))
-                .then(() => toast.success(`${ids.length} company(ies) deleted`))
-                .catch(() => toast.error("Failed to delete some companies"));
-            }}
+            showPagination={false}
           />
         </>
       )}

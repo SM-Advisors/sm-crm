@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { KanbanBoard, type KanbanCard, type KanbanStage } from "@/components/KanbanBoard";
 import {
   useSalesDeals,
@@ -11,17 +12,23 @@ import { useContacts } from "@/hooks/useContacts";
 import { SALES_STAGE_LABELS } from "@/types";
 import { toast } from "sonner";
 
-const SALES_STAGES: KanbanStage[] = [
+export const ACTIVE_SALES_STAGES: KanbanStage[] = [
   { id: "qualification",    label: SALES_STAGE_LABELS.qualification,    color: "bg-blue-400" },
   { id: "needs_analysis",   label: SALES_STAGE_LABELS.needs_analysis,   color: "bg-cyan-400" },
   { id: "proposal",         label: SALES_STAGE_LABELS.proposal,         color: "bg-violet-400" },
+];
+
+export const ARCHIVED_SALES_STAGES: KanbanStage[] = [
   { id: "cold_deal",        label: SALES_STAGE_LABELS.cold_deal,        color: "bg-slate-400" },
   { id: "closed_won",       label: SALES_STAGE_LABELS.closed_won,       color: "bg-emerald-400" },
   { id: "closed_lost",      label: SALES_STAGE_LABELS.closed_lost,      color: "bg-rose-400" },
   { id: "service_complete",  label: SALES_STAGE_LABELS.service_complete,  color: "bg-teal-400" },
 ];
 
-export default function SalesPipelinePage() {
+
+export default function SalesPipelinePage({ stages: stagesProp }: { stages?: KanbanStage[] } = {}) {
+  const stages = stagesProp ?? ACTIVE_SALES_STAGES;
+  const navigate = useNavigate();
   const { data: deals = [], isLoading } = useSalesDeals();
   const { data: companies = [] } = useCompanies();
   const { data: contacts = [] } = useContacts();
@@ -41,17 +48,23 @@ export default function SalesPipelinePage() {
     return map;
   }, [contacts]);
 
-  const cards: KanbanCard[] = deals.map((d) => ({
-    id: d.id,
-    title: d.title,
-    stage: d.stage,
-    stage_order: d.stage_order ?? 0,
-    value: d.value,
-    company: d.company as KanbanCard["company"],
-    contact: d.contact as KanbanCard["contact"],
-    probability: d.probability,
-    close_date: d.expected_close_date,
-  }));
+  const stageIds = new Set(stages.map((s) => s.id));
+
+  const isArchived = stages === ARCHIVED_SALES_STAGES;
+
+  const cards: KanbanCard[] = deals
+    .filter((d) => stageIds.has(d.stage))
+    .map((d) => ({
+      id: d.id,
+      title: d.title,
+      stage: d.stage,
+      stage_order: d.stage_order ?? 0,
+      value: d.value,
+      company: d.company as KanbanCard["company"],
+      contact: d.contact as KanbanCard["contact"],
+      probability: isArchived ? null : d.probability,
+      close_date: d.expected_close_date,
+    }));
 
   function handleCardMove(cardId: string, newStage: string, newOrder: number) {
     updateDeal.mutate(
@@ -133,17 +146,20 @@ export default function SalesPipelinePage() {
   return (
     <div className="flex flex-col gap-6 p-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Sales Pipeline</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">{deals.length} deals</p>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {stages === ARCHIVED_SALES_STAGES ? "Archived Pipeline" : "Sales Pipeline"}
+        </h1>
+        <p className="text-sm text-muted-foreground mt-0.5">{cards.length} deals</p>
       </div>
 
       <KanbanBoard
         cards={cards}
-        stages={SALES_STAGES}
+        stages={stages}
         onCardMove={handleCardMove}
         onCreate={handleCreate}
         onUpdate={handleUpdate}
         onDelete={handleDelete}
+        onCardClick={(card) => navigate(`/sales-deals/${card.id}`)}
         companies={companies}
         contacts={contacts}
         contactsByCompany={contactsByCompany}
