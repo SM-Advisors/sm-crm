@@ -195,6 +195,7 @@ export default function InvoicesPage() {
           exportName="invoices"
           toExportRow={toExportRow}
           searchPlaceholder="Search invoices…"
+          showPagination={false}
         />
       )}
     </div>

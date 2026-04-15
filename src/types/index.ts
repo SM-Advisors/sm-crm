@@ -289,6 +289,24 @@ export interface Payment {
 }
 
 // ============================================================
+// REMINDERS
+// ============================================================
+
+export interface Reminder {
+  id: string;
+  contact_id: string | null;
+  company_id: string | null;
+  title: string;
+  description: string | null;
+  remind_at: string;
+  is_completed: boolean;
+  completed_at: string | null;
+  sms_sent: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// ============================================================
 // AGENT
 // ============================================================
 

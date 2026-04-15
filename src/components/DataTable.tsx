@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import {
   flexRender,
   getCoreRowModel,
@@ -185,6 +185,8 @@ interface DataTableProps<T> {
   getRowId?: (row: T) => string;
   /** Default page size. Defaults to 25. */
   defaultPageSize?: number;
+  /** When false, hides all pagination controls and shows all rows. Defaults to true. */
+  showPagination?: boolean;
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -199,14 +201,23 @@ export function DataTable<T>({
   onBulkDelete,
   getRowId,
   defaultPageSize = 25,
+  showPagination = true,
 }: DataTableProps<T>) {
+  const effectivePageSize = showPagination ? defaultPageSize : data.length || 1;
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
-  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: defaultPageSize });
+  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: effectivePageSize });
   const [showColumnFilters, setShowColumnFilters] = useState(false);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+
+  // Keep pageSize in sync with data length when pagination is hidden
+  useEffect(() => {
+    if (!showPagination) {
+      setPagination((p) => ({ ...p, pageSize: data.length || 1, pageIndex: 0 }));
+    }
+  }, [showPagination, data.length]);
 
   const resolveRowId = getRowId ?? ((row: T) => (row as Record<string, unknown>).id as string);
 
@@ -361,62 +372,64 @@ export function DataTable<T>({
       </div>
 
       {/* ── Top pagination controls ── */}
-      <div className="flex items-center gap-3 text-sm text-muted-foreground">
-        <div className="flex items-center gap-2">
-          <span>Show</span>
-          <Select
-            value={String(pagination.pageSize)}
-            onValueChange={(v) =>
-              setPagination((p) => ({ ...p, pageSize: Number(v), pageIndex: 0 }))
-            }
-          >
-            <SelectTrigger className="h-8 w-[70px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {[25, 50, 100, 200].map((n) => (
-                <SelectItem key={n} value={String(n)}>
-                  {n}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <span>per page</span>
-        </div>
-
-        <div className="flex-1" />
-
-        <span>
-          {table.getFilteredRowModel().rows.length === 0
-            ? "0 rows"
-            : `${pagination.pageIndex * pagination.pageSize + 1}–${Math.min(
-                (pagination.pageIndex + 1) * pagination.pageSize,
-                table.getFilteredRowModel().rows.length
-              )} of ${table.getFilteredRowModel().rows.length}`}
-        </span>
-
-        {table.getPageCount() > 1 && (
-          <div className="flex items-center gap-1">
-            <span>Page</span>
+      {showPagination && (
+        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <span>Show</span>
             <Select
-              value={String(pagination.pageIndex)}
-              onValueChange={(v) => setPagination((p) => ({ ...p, pageIndex: Number(v) }))}
+              value={String(pagination.pageSize)}
+              onValueChange={(v) =>
+                setPagination((p) => ({ ...p, pageSize: Number(v), pageIndex: 0 }))
+              }
             >
               <SelectTrigger className="h-8 w-[70px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {Array.from({ length: table.getPageCount() }, (_, i) => (
-                  <SelectItem key={i} value={String(i)}>
-                    {i + 1}
+                {[25, 50, 100, 200].map((n) => (
+                  <SelectItem key={n} value={String(n)}>
+                    {n}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <span>of {table.getPageCount()}</span>
+            <span>per page</span>
           </div>
-        )}
-      </div>
+
+          <div className="flex-1" />
+
+          <span>
+            {table.getFilteredRowModel().rows.length === 0
+              ? "0 rows"
+              : `${pagination.pageIndex * pagination.pageSize + 1}–${Math.min(
+                  (pagination.pageIndex + 1) * pagination.pageSize,
+                  table.getFilteredRowModel().rows.length
+                )} of ${table.getFilteredRowModel().rows.length}`}
+          </span>
+
+          {table.getPageCount() > 1 && (
+            <div className="flex items-center gap-1">
+              <span>Page</span>
+              <Select
+                value={String(pagination.pageIndex)}
+                onValueChange={(v) => setPagination((p) => ({ ...p, pageIndex: Number(v) }))}
+              >
+                <SelectTrigger className="h-8 w-[70px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: table.getPageCount() }, (_, i) => (
+                    <SelectItem key={i} value={String(i)}>
+                      {i + 1}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <span>of {table.getPageCount()}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Bulk action bar ── */}
       {onBulkDelete && Object.keys(rowSelection).length > 0 && (
@@ -549,56 +562,58 @@ export function DataTable<T>({
       </div>
 
       {/* ── Pagination ── */}
-      <div className="flex items-center justify-between gap-4 text-sm text-muted-foreground">
-        <div className="flex items-center gap-2">
-          <span>Rows per page</span>
-          <Select
-            value={String(pagination.pageSize)}
-            onValueChange={(v) =>
-              setPagination((p) => ({ ...p, pageSize: Number(v), pageIndex: 0 }))
-            }
-          >
-            <SelectTrigger className="h-8 w-16">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {[25, 50, 100].map((n) => (
-                <SelectItem key={n} value={String(n)}>
-                  {n}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      {showPagination && (
+        <div className="flex items-center justify-between gap-4 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <span>Rows per page</span>
+            <Select
+              value={String(pagination.pageSize)}
+              onValueChange={(v) =>
+                setPagination((p) => ({ ...p, pageSize: Number(v), pageIndex: 0 }))
+              }
+            >
+              <SelectTrigger className="h-8 w-16">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[25, 50, 100].map((n) => (
+                  <SelectItem key={n} value={String(n)}>
+                    {n}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-        <span>
-          {table.getFilteredRowModel().rows.length === 0
-            ? "0 rows"
-            : `${pagination.pageIndex * pagination.pageSize + 1}–${Math.min(
-                (pagination.pageIndex + 1) * pagination.pageSize,
-                table.getFilteredRowModel().rows.length
-              )} of ${table.getFilteredRowModel().rows.length}`}
-        </span>
+          <span>
+            {table.getFilteredRowModel().rows.length === 0
+              ? "0 rows"
+              : `${pagination.pageIndex * pagination.pageSize + 1}–${Math.min(
+                  (pagination.pageIndex + 1) * pagination.pageSize,
+                  table.getFilteredRowModel().rows.length
+                )} of ${table.getFilteredRowModel().rows.length}`}
+          </span>
 
-        <div className="flex items-center gap-1">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-          >
-            Previous
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-          >
-            Next
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => table.nextPage()}
+              disabled={!table.getCanNextPage()}
+            >
+              Next
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

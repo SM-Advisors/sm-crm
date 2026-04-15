@@ -476,7 +476,6 @@ INSERT INTO agent_config (config_key, config_value, description) VALUES
   ('prioritization_rules', '{"weight_days_since_contact": 0.4, "weight_deal_stage": 0.3, "weight_category": 0.2, "weight_random": 0.1}', 'Weights used to score and rank contacts for daily surfacing'),
   ('daily_surface_count', '{"value": 6}', 'Number of contacts to surface each day'),
   ('linkedin_days', '{"days": ["tuesday", "thursday"]}', 'Days of the week agent drafts a LinkedIn post'),
-  ('perplexity_threshold', '{"days_since_research": 30}', 'Minimum days since last research before triggering Perplexity again'),
   ('outreach_tone', '{"style": "warm_professional", "length": "concise"}', 'Tone and length guidance for drafted outreach');
 
 -- ============================================

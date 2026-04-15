@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import SalesPipelinePage from "./SalesPipeline";
+import SalesPipelinePage, { ACTIVE_SALES_STAGES, ARCHIVED_SALES_STAGES } from "./SalesPipeline";
 import DeliveryPipelinePage from "./DeliveryPipeline";
 
 export default function PipelinePage() {
@@ -11,12 +11,16 @@ export default function PipelinePage() {
       <div className="px-6 pt-6">
         <TabsList>
           <TabsTrigger value="sales">Sales Pipeline</TabsTrigger>
+          <TabsTrigger value="archived">Archived Pipeline</TabsTrigger>
           <TabsTrigger value="delivery">Delivery Pipeline</TabsTrigger>
         </TabsList>
       </div>
 
       <TabsContent value="sales" className="mt-0">
-        <SalesPipelinePage />
+        <SalesPipelinePage stages={ACTIVE_SALES_STAGES} />
+      </TabsContent>
+      <TabsContent value="archived" className="mt-0">
+        <SalesPipelinePage stages={ARCHIVED_SALES_STAGES} />
       </TabsContent>
       <TabsContent value="delivery" className="mt-0">
         <DeliveryPipelinePage />

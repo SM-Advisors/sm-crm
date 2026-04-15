@@ -19,7 +19,6 @@ The owner is Cory Kronheim, founder of SM Advisors. He is a CPA and AI enablemen
 - **Automation**: n8n (external, cloud-hosted — not in this repo)
 - **SMS**: Twilio (via n8n workflows)
 - **AI agent brain**: Claude API (via n8n workflows)
-- **Research**: Perplexity API (via n8n workflows)
 
 ---
 
@@ -160,7 +159,7 @@ VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
 ```
 
-Do not add API keys for Claude, Perplexity, Twilio, or QuickBooks to this app — those live in n8n environment variables.
+Do not add API keys for Claude, Twilio, or QuickBooks to this app — those live in n8n environment variables.
 
 ---
 
