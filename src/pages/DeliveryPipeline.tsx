@@ -4,6 +4,7 @@ import {
   useDeliveryEngagements,
   useCreateDeliveryEngagement,
   useUpdateDeliveryEngagement,
+  useReorderDeliveryEngagements,
 } from "@/hooks/useDeals";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useContacts } from "@/hooks/useContacts";
@@ -25,6 +26,7 @@ export default function DeliveryPipelinePage() {
   const { data: contacts = [] } = useContacts();
   const createEngagement = useCreateDeliveryEngagement();
   const updateEngagement = useUpdateDeliveryEngagement();
+  const reorderEngagements = useReorderDeliveryEngagements();
 
   const cards: KanbanCard[] = engagements.map((e) => ({
     id: e.id,
@@ -90,6 +92,11 @@ export default function DeliveryPipelinePage() {
         onCardMove={handleCardMove}
         onCreate={handleCreate}
         onCardClick={(card) => navigate(`/companies/${card.company?.id ?? ""}`)}
+        onReorder={(updates) => {
+          reorderEngagements.mutate(updates, {
+            onError: () => toast.error("Failed to reorder"),
+          });
+        }}
         companies={companies}
         contacts={contacts}
       />

@@ -6,6 +6,7 @@ import {
   useCreateSalesDeal,
   useUpdateSalesDeal,
   useDeleteSalesDeal,
+  useReorderSalesDeals,
 } from "@/hooks/useDeals";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useContacts } from "@/hooks/useContacts";
@@ -35,6 +36,7 @@ export default function SalesPipelinePage({ stages: stagesProp }: { stages?: Kan
   const createDeal = useCreateSalesDeal();
   const updateDeal = useUpdateSalesDeal();
   const deleteDeal = useDeleteSalesDeal();
+  const reorderDeals = useReorderSalesDeals();
 
   // Build contacts-by-company lookup for filtering
   const contactsByCompany = useMemo(() => {
@@ -160,6 +162,11 @@ export default function SalesPipelinePage({ stages: stagesProp }: { stages?: Kan
         onUpdate={handleUpdate}
         onDelete={handleDelete}
         onCardClick={(card) => navigate(`/sales-deals/${card.id}`)}
+        onReorder={(updates) => {
+          reorderDeals.mutate(updates, {
+            onError: () => toast.error("Failed to reorder"),
+          });
+        }}
         companies={companies}
         contacts={contacts}
         contactsByCompany={contactsByCompany}
