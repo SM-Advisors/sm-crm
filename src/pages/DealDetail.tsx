@@ -90,19 +90,47 @@ export default function DealDetailPage() {
 
   // Document links for this deal
   const [docLinks, setDocLinks] = useState<{ id: string; title: string; url: string }[]>([]);
-  const [docsLoaded, setDocsLoaded] = useState(false);
 
   // Edit deal form
   const [editForm, setEditForm] = useState({
-    title: deal?.title ?? "",
-    stage: deal?.stage ?? "qualification",
-    company_id: deal?.company_id ?? "",
-    contact_id: deal?.contact_id ?? "",
-    value: deal?.value?.toString() ?? "",
-    probability: deal?.probability?.toString() ?? "",
-    expected_close_date: deal?.expected_close_date ?? "",
-    description: deal?.description ?? "",
+    title: "",
+    stage: "qualification" as string,
+    company_id: "",
+    contact_id: "",
+    value: "",
+    probability: "",
+    expected_close_date: "",
+    description: "",
   });
+
+  // Sync edit form when deal loads
+  useEffect(() => {
+    if (deal) {
+      setEditForm({
+        title: deal.title ?? "",
+        stage: deal.stage ?? "qualification",
+        company_id: deal.company_id ?? "",
+        contact_id: deal.contact_id ?? "",
+        value: deal.value?.toString() ?? "",
+        probability: deal.probability?.toString() ?? "",
+        expected_close_date: deal.expected_close_date ?? "",
+        description: deal.description ?? "",
+      });
+    }
+  }, [deal]);
+
+  // Fetch document links when deal loads
+  useEffect(() => {
+    if (!deal?.id) return;
+    supabase
+      .from("document_links")
+      .select("*")
+      .eq("linkable_type", "sales_deal")
+      .eq("linkable_id", deal.id)
+      .then(({ data }) => {
+        setDocLinks((data ?? []) as { id: string; title: string; url: string }[]);
+      });
+  }, [deal?.id]);
 
   // Contacts filtered by deal's company
   const companyContacts = useMemo(() => {
@@ -135,15 +163,6 @@ export default function DealDetailPage() {
   const contactName = deal.contact
     ? [deal.contact.first_name, deal.contact.last_name].filter(Boolean).join(" ")
     : null;
-
-  if (!docsLoaded && deal.id) {
-    supabase
-      .from("document_links")
-      .select("*")
-      .eq("linkable_type", "sales_deal")
-      .eq("linkable_id", deal.id)
-      .then(({ data }) => { setDocLinks((data ?? []) as { id: string; title: string; url: string }[]); setDocsLoaded(true); });
-  }
 
   function openEdit() {
     setEditForm({
