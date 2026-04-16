@@ -46,6 +46,37 @@ export function useUpdateAgentAction() {
   });
 }
 
+// ─── Stage column order ──────────────────────────────────────────────────────
+
+export function useStageColumnOrder(): Record<string, string[]> {
+  const { data: configs = [] } = useAgentConfig();
+  const configMap = Object.fromEntries(configs.map((c) => [c.config_key, c.config_value]));
+  return (configMap["stage_column_order"] as Record<string, string[]> | undefined) ?? {};
+}
+
+/**
+ * Given a list of KanbanStage objects and a pipeline key (e.g. "sales_active"),
+ * returns the stages sorted according to the stored column order.
+ * Stages not in the stored order appear at the end in their original order.
+ */
+export function useSortedStages<T extends { id: string }>(
+  stages: T[],
+  pipelineKey: string,
+): T[] {
+  const columnOrder = useStageColumnOrder();
+  const order = columnOrder[pipelineKey];
+  if (!order || order.length === 0) return stages;
+
+  const orderMap = new Map(order.map((id, idx) => [id, idx]));
+  return [...stages].sort((a, b) => {
+    const ai = orderMap.get(a.id) ?? stages.length + stages.indexOf(a);
+    const bi = orderMap.get(b.id) ?? stages.length + stages.indexOf(b);
+    return ai - bi;
+  });
+}
+
+// ─── Stage probabilities ─────────────────────────────────────────────────────
+
 const DEFAULT_STAGE_PROBABILITIES: Record<string, number> = {
   qualification: 10,
   needs_analysis: 25,
