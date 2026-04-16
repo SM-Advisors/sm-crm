@@ -1171,6 +1171,63 @@ export type Database = {
         }
         Relationships: []
       }
+      reminders: {
+        Row: {
+          company_id: string | null
+          completed_at: string | null
+          contact_id: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          is_completed: boolean
+          remind_at: string
+          sms_sent: boolean
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          completed_at?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_completed?: boolean
+          remind_at: string
+          sms_sent?: boolean
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          completed_at?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_completed?: boolean
+          remind_at?: string
+          sms_sent?: boolean
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reminders_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reminders_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_deals: {
         Row: {
           actual_close_date: string | null
