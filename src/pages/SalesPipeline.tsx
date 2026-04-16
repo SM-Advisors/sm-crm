@@ -5,7 +5,6 @@ import {
   useSalesDeals,
   useCreateSalesDeal,
   useUpdateSalesDeal,
-  useDeleteSalesDeal,
   useReorderSalesDeals,
 } from "@/hooks/useDeals";
 import { useCompanies } from "@/hooks/useCompanies";
@@ -39,7 +38,6 @@ export default function SalesPipelinePage({ stages: stagesProp }: { stages?: Kan
   const { data: contacts = [] } = useContacts();
   const createDeal = useCreateSalesDeal();
   const updateDeal = useUpdateSalesDeal();
-  const deleteDeal = useDeleteSalesDeal();
   const reorderDeals = useReorderSalesDeals();
   const stageProbabilities = useStageProbabilities();
 
@@ -106,40 +104,6 @@ export default function SalesPipelinePage({ stages: stagesProp }: { stages?: Kan
     );
   }
 
-  function handleUpdate(id: string, data: {
-    title: string;
-    stage: string;
-    company_id?: string;
-    contact_id?: string;
-    value?: number;
-    expected_close_date?: string;
-    description?: string;
-  }) {
-    updateDeal.mutate(
-      {
-        id,
-        title: data.title,
-        stage: data.stage as import("@/types").SalesStage,
-        company_id: data.company_id ?? null,
-        contact_id: data.contact_id ?? null,
-        value: data.value ?? null,
-        expected_close_date: data.expected_close_date ?? null,
-        description: data.description ?? null,
-      },
-      {
-        onSuccess: () => toast.success("Deal updated"),
-        onError: () => toast.error("Failed to update deal"),
-      }
-    );
-  }
-
-  function handleDelete(id: string) {
-    deleteDeal.mutate(id, {
-      onSuccess: () => toast.success("Deal deleted"),
-      onError: () => toast.error("Failed to delete deal"),
-    });
-  }
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64 text-muted-foreground p-6">
@@ -162,8 +126,6 @@ export default function SalesPipelinePage({ stages: stagesProp }: { stages?: Kan
         stages={stages}
         onCardMove={handleCardMove}
         onCreate={handleCreate}
-        onUpdate={handleUpdate}
-        onDelete={handleDelete}
         onCardClick={(card) => navigate(`/sales-deals/${card.id}`)}
         onReorder={(updates) => {
           reorderDeals.mutate(updates, {
