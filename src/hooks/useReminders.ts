@@ -2,18 +2,21 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import type { Reminder } from "@/types";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const sb = supabase as any;
+
 export function useReminders(contactId?: string) {
   return useQuery({
     queryKey: ["reminders", contactId],
     enabled: !!contactId,
     queryFn: async (): Promise<Reminder[]> => {
-      const { data, error } = await supabase
+      const { data, error } = await sb
         .from("reminders")
         .select("*")
         .eq("contact_id", contactId!)
         .order("remind_at", { ascending: true });
       if (error) throw error;
-      return data as Reminder[];
+      return (data ?? []) as Reminder[];
     },
   });
 }
@@ -28,7 +31,7 @@ export function useCreateReminder() {
       description?: string | null;
       remind_at: string;
     }) => {
-      const { data, error } = await supabase
+      const { data, error } = await sb
         .from("reminders")
         .insert(input)
         .select()
@@ -50,7 +53,7 @@ export function useUpdateReminder() {
       contact_id,
       ...updates
     }: Partial<Reminder> & { id: string; contact_id: string }) => {
-      const { data, error } = await supabase
+      const { data, error } = await sb
         .from("reminders")
         .update({ ...updates, updated_at: new Date().toISOString() })
         .eq("id", id)
@@ -69,7 +72,7 @@ export function useCompleteReminder() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, contact_id }: { id: string; contact_id: string }) => {
-      const { error } = await supabase
+      const { error } = await sb
         .from("reminders")
         .update({
           is_completed: true,
@@ -89,7 +92,7 @@ export function useDeleteReminder() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, contact_id }: { id: string; contact_id: string }) => {
-      const { error } = await supabase
+      const { error } = await sb
         .from("reminders")
         .delete()
         .eq("id", id);
