@@ -88,6 +88,28 @@ export default function DealDetailPage() {
   const [linkUrl, setLinkUrl] = useState("");
   const [savingLink, setSavingLink] = useState(false);
 
+  // Document links for this deal
+  const [docLinks, setDocLinks] = useState<{ id: string; title: string; url: string }[]>([]);
+  const [docsLoaded, setDocsLoaded] = useState(false);
+
+  // Edit deal form
+  const [editForm, setEditForm] = useState({
+    title: deal?.title ?? "",
+    stage: deal?.stage ?? "qualification",
+    company_id: deal?.company_id ?? "",
+    contact_id: deal?.contact_id ?? "",
+    value: deal?.value?.toString() ?? "",
+    probability: deal?.probability?.toString() ?? "",
+    expected_close_date: deal?.expected_close_date ?? "",
+    description: deal?.description ?? "",
+  });
+
+  // Contacts filtered by deal's company
+  const companyContacts = useMemo(() => {
+    if (!deal?.company_id) return allContacts;
+    return allContacts.filter((c) => c.company_id === deal.company_id);
+  }, [allContacts, deal?.company_id]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64 text-muted-foreground">
@@ -114,15 +136,6 @@ export default function DealDetailPage() {
     ? [deal.contact.first_name, deal.contact.last_name].filter(Boolean).join(" ")
     : null;
 
-  // Contacts filtered by deal's company
-  const companyContacts = useMemo(() => {
-    if (!deal.company_id) return allContacts;
-    return allContacts.filter((c) => c.company_id === deal.company_id);
-  }, [allContacts, deal.company_id]);
-
-  // Document links for this deal
-  const [docLinks, setDocLinks] = useState<{ id: string; title: string; url: string }[]>([]);
-  const [docsLoaded, setDocsLoaded] = useState(false);
   if (!docsLoaded && deal.id) {
     supabase
       .from("document_links")
@@ -131,18 +144,6 @@ export default function DealDetailPage() {
       .eq("linkable_id", deal.id)
       .then(({ data }) => { setDocLinks((data ?? []) as { id: string; title: string; url: string }[]); setDocsLoaded(true); });
   }
-
-  // Edit deal form
-  const [editForm, setEditForm] = useState({
-    title: deal.title ?? "",
-    stage: deal.stage ?? "qualification",
-    company_id: deal.company_id ?? "",
-    contact_id: deal.contact_id ?? "",
-    value: deal.value?.toString() ?? "",
-    probability: deal.probability?.toString() ?? "",
-    expected_close_date: deal.expected_close_date ?? "",
-    description: deal.description ?? "",
-  });
 
   function openEdit() {
     setEditForm({
