@@ -138,6 +138,12 @@ export default function DealDetailPage() {
     return allContacts.filter((c) => c.company_id === deal.company_id);
   }, [allContacts, deal?.company_id]);
 
+  // Contacts for edit form — depends on selected company in form
+  const editFormContacts = useMemo(() => {
+    if (!editForm.company_id) return allContacts;
+    return allContacts.filter((c) => c.company_id === editForm.company_id);
+  }, [allContacts, editForm.company_id]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64 text-muted-foreground">
@@ -177,12 +183,6 @@ export default function DealDetailPage() {
     });
     setEditOpen(true);
   }
-
-  // Contacts for edit form — depends on selected company in form
-  const editFormContacts = useMemo(() => {
-    if (!editForm.company_id) return allContacts;
-    return allContacts.filter((c) => c.company_id === editForm.company_id);
-  }, [allContacts, editForm.company_id]);
 
   function saveEdit() {
     updateDeal.mutate(
