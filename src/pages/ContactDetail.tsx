@@ -94,7 +94,9 @@ function SidebarField({ label, value }: { label: string; value?: string | null }
 // Timeline tab ─────────────────────────────────────────────────────────────────
 
 function TimelineTab({ contact }: { contact: ContactWithDetails }) {
-  const interactions = contact.interactions ?? [];
+  const interactions = [...(contact.interactions ?? [])].sort(
+    (a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime()
+  );
 
   if (!interactions.length) {
     return (
@@ -239,9 +241,9 @@ function ActivitiesTab({ contact }: { contact: ContactWithDetails }) {
   const [editAttendees, setEditAttendees] = useState("");
 
   const activityTypes: InteractionType[] = ["call", "meeting", "conference", "linkedin_message", "text"];
-  const activities = (contact.interactions ?? []).filter((i) =>
-    activityTypes.includes(i.type as InteractionType)
-  );
+  const activities = [...(contact.interactions ?? [])]
+    .filter((i) => activityTypes.includes(i.type as InteractionType))
+    .sort((a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime());
 
   function handleLog() {
     logInteraction.mutate(
@@ -473,7 +475,9 @@ function ActivitiesTab({ contact }: { contact: ContactWithDetails }) {
 // Emails tab ──────────────────────────────────────────────────────────────────
 
 function EmailsTab({ contact }: { contact: ContactWithDetails }) {
-  const emails = (contact.interactions ?? []).filter((i) => i.type === "email_sent" || i.type === "email_received");
+  const emails = [...(contact.interactions ?? [])]
+    .filter((i) => i.type === "email_sent" || i.type === "email_received")
+    .sort((a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime());
 
   return (
     <div className="flex flex-col gap-4">
