@@ -23,18 +23,24 @@ export function useSalesDeal(id: string) {
     queryFn: async (): Promise<SalesDeal> => {
       const { data, error } = await supabase
         .from("sales_deals")
-        .select("*, company:companies(*), contact:contacts(*, contact_categories(category))")
+        .select("*, company:companies(id,name), contact:contacts(id,first_name,last_name,email,phone,company_id)")
         .eq("id", id)
         .single();
       if (error) throw error;
 
-      // Fetch related interactions (via contact_id or company_id)
       let interactions: Interaction[] = [];
       if (data.contact_id) {
         const { data: ints } = await supabase
           .from("interactions")
           .select("*")
           .eq("contact_id", data.contact_id)
+          .order("occurred_at", { ascending: false });
+        interactions = (ints ?? []) as unknown as Interaction[];
+      } else if (data.company_id) {
+        const { data: ints } = await supabase
+          .from("interactions")
+          .select("*")
+          .eq("company_id", data.company_id)
           .order("occurred_at", { ascending: false });
         interactions = (ints ?? []) as unknown as Interaction[];
       }
