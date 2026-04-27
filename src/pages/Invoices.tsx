@@ -72,12 +72,23 @@ function buildColumns(navigate: ReturnType<typeof useNavigate>): DataTableColumn
       },
     },
     {
-      id: "engagement",
-      header: "Engagement",
-      accessorFn: (row) => (row as any).engagement?.title ?? "",
+      id: "deal_or_engagement",
+      header: "Deal / Engagement",
+      accessorFn: (row) => row.deal?.title ?? row.engagement?.title ?? "",
       filterMeta: { type: "text" },
       cell: ({ row }) => {
-        const e = (row.original as any).engagement;
+        const d = row.original.deal;
+        const e = row.original.engagement;
+        if (d) {
+          return (
+            <button
+              className="hover:underline text-left"
+              onClick={(ev) => { ev.stopPropagation(); navigate(`/pipeline/${d.id}`); }}
+            >
+              {d.title}
+            </button>
+          );
+        }
         return e?.title ?? <span className="text-muted-foreground">—</span>;
       },
     },
@@ -150,6 +161,7 @@ function toExportRow(inv: Invoice): Record<string, unknown> {
   return {
     "Invoice #": inv.invoice_number ?? "",
     Company: (inv as any).company?.name ?? "",
+    Deal: inv.deal?.title ?? "",
     Engagement: (inv as any).engagement?.title ?? "",
     Date: formatDate(inv.invoice_date),
     Due: formatDate(inv.due_date),

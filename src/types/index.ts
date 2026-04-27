@@ -259,6 +259,7 @@ export interface Invoice {
   // Joined
   company?: Company | null;
   engagement?: DeliveryEngagement | null;
+  deal?: { id: string; title: string } | null;
   line_items?: InvoiceLineItem[];
   payments?: Payment[];
 }

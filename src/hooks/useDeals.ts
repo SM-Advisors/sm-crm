@@ -45,24 +45,41 @@ export function useSalesDeal(id: string) {
         interactions = (ints ?? []) as unknown as Interaction[];
       }
 
-      // Fetch invoices linked to this deal via engagement
+      // Fetch invoices linked directly to this deal (invoices.deal_id),
+      // plus any invoices on delivery engagements that hang off this deal.
+      const invoiceMap = new Map<string, Invoice>();
+
+      const { data: directInvoices } = await supabase
+        .from("invoices")
+        .select("*")
+        .eq("deal_id", id)
+        .order("invoice_date", { ascending: false });
+      for (const inv of (directInvoices ?? []) as unknown as Invoice[]) {
+        invoiceMap.set(inv.id, inv);
+      }
+
       const { data: engagements } = await supabase
         .from("delivery_engagements")
-        .select("id, company_id")
+        .select("id")
         .eq("sales_deal_id", id);
-
-      let invoices: Invoice[] = [];
-      if (engagements && engagements.length > 0) {
-        const companyIds = engagements.map((e) => e.company_id).filter(Boolean) as string[];
-        if (companyIds.length > 0) {
-          const { data: invData } = await supabase
-            .from("invoices")
-            .select("*")
-            .in("company_id", companyIds)
-            .order("invoice_date", { ascending: false });
-          invoices = (invData ?? []) as unknown as Invoice[];
+      const engagementIds = ((engagements ?? []) as { id: string }[]).map((e) => e.id);
+      if (engagementIds.length > 0) {
+        const { data: engInvoices } = await (supabase.from("invoices") as unknown as {
+          select: (cols: string) => { in: (col: string, vals: string[]) => { order: (col: string, opts: { ascending: boolean }) => Promise<{ data: Invoice[] | null }> } };
+        })
+          .select("*")
+          .in("engagement_id", engagementIds)
+          .order("invoice_date", { ascending: false });
+        for (const inv of engInvoices ?? []) {
+          if (!invoiceMap.has(inv.id)) invoiceMap.set(inv.id, inv);
         }
       }
+
+      const invoices: Invoice[] = Array.from(invoiceMap.values()).sort((a, b) => {
+        const ad = a.invoice_date ?? "";
+        const bd = b.invoice_date ?? "";
+        return bd.localeCompare(ad);
+      });
 
       return {
         ...data,
