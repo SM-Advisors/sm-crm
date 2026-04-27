@@ -17,6 +17,8 @@ import {
   Plus,
   ExternalLink,
   Folder,
+  Trash2,
+  Link2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -43,9 +45,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useSalesDeal, useUpdateSalesDeal } from "@/hooks/useDeals";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useContacts } from "@/hooks/useContacts";
+import { useInvoices } from "@/hooks/useInvoices";
 import { supabase } from "@/lib/supabase";
 import { SALES_STAGE_LABELS, INTERACTION_TYPE_LABELS } from "@/types";
-import type { SalesStage, SalesDeal } from "@/types";
+import type { SalesStage, SalesDeal, Invoice } from "@/types";
 import { toast } from "sonner";
 
 function fmtDate(iso?: string | null) {
@@ -73,6 +76,7 @@ export default function DealDetailPage() {
   const updateDeal = useUpdateSalesDeal();
   const { data: companies = [] } = useCompanies();
   const { data: allContacts = [] } = useContacts();
+  const { data: allInvoices = [] } = useInvoices();
 
   const [editOpen, setEditOpen] = useState(false);
   const [editingContract, setEditingContract] = useState(false);
@@ -87,9 +91,18 @@ export default function DealDetailPage() {
   const [linkTitle, setLinkTitle] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
   const [savingLink, setSavingLink] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState<
+    { id: string; name: string; created_at: string; url: string }[]
+  >([]);
 
   // Document links for this deal
   const [docLinks, setDocLinks] = useState<{ id: string; title: string; url: string }[]>([]);
+
+  // Invoice linking
+  const [linkInvoiceOpen, setLinkInvoiceOpen] = useState(false);
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string>("");
+  const [linkingInvoice, setLinkingInvoice] = useState(false);
 
   // Edit deal form
   const [editForm, setEditForm] = useState({
@@ -132,6 +145,33 @@ export default function DealDetailPage() {
       });
   }, [deal?.id]);
 
+  // Fetch uploaded files from Supabase Storage when deal loads
+  useEffect(() => {
+    if (!deal?.id) return;
+    const folder = `deals/${deal.id}`;
+    supabase.storage
+      .from("deal-files")
+      .list(folder)
+      .then(({ data: list }) => {
+        if (!list) {
+          setUploadedFiles([]);
+          return;
+        }
+        const mapped = list.map((f) => {
+          const { data: urlData } = supabase.storage
+            .from("deal-files")
+            .getPublicUrl(`${folder}/${f.name}`);
+          return {
+            id: f.id ?? f.name,
+            name: f.name,
+            created_at: f.created_at ?? "",
+            url: urlData.publicUrl,
+          };
+        });
+        setUploadedFiles(mapped);
+      });
+  }, [deal?.id]);
+
   // Contacts filtered by deal's company
   const companyContacts = useMemo(() => {
     if (!deal?.company_id) return allContacts;
@@ -143,6 +183,20 @@ export default function DealDetailPage() {
     if (!editForm.company_id) return allContacts;
     return allContacts.filter((c) => c.company_id === editForm.company_id);
   }, [allContacts, editForm.company_id]);
+
+  // Candidate invoices to link: same company as the deal, and not already linked here.
+  const linkedInvoiceIds = useMemo(
+    () => new Set((deal?.invoices ?? []).map((i) => i.id)),
+    [deal?.invoices]
+  );
+  const linkableInvoices = useMemo<Invoice[]>(() => {
+    if (!deal?.company_id) {
+      return allInvoices.filter((inv) => !linkedInvoiceIds.has(inv.id));
+    }
+    return allInvoices.filter(
+      (inv) => inv.company_id === deal.company_id && !linkedInvoiceIds.has(inv.id)
+    );
+  }, [allInvoices, deal?.company_id, linkedInvoiceIds]);
 
   if (isLoading) {
     return (
@@ -229,6 +283,112 @@ export default function DealDetailPage() {
     // Re-fetch links
     const { data } = await supabase.from("document_links").select("*").eq("linkable_type", "sales_deal").eq("linkable_id", deal.id);
     setDocLinks((data ?? []) as { id: string; title: string; url: string }[]);
+  }
+
+  async function refreshUploadedFiles() {
+    const folder = `deals/${deal.id}`;
+    const { data: list } = await supabase.storage.from("deal-files").list(folder);
+    if (!list) {
+      setUploadedFiles([]);
+      return;
+    }
+    setUploadedFiles(
+      list.map((f) => {
+        const { data: urlData } = supabase.storage
+          .from("deal-files")
+          .getPublicUrl(`${folder}/${f.name}`);
+        return {
+          id: f.id ?? f.name,
+          name: f.name,
+          created_at: f.created_at ?? "",
+          url: urlData.publicUrl,
+        };
+      })
+    );
+  }
+
+  async function handleUploadFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = e.target.files;
+    if (!selected || selected.length === 0) return;
+    setUploading(true);
+    const folder = `deals/${deal.id}`;
+    let uploadCount = 0;
+    for (let i = 0; i < selected.length; i++) {
+      const file = selected[i];
+      const filePath = `${folder}/${file.name}`;
+      const { error } = await supabase.storage.from("deal-files").upload(filePath, file, {
+        cacheControl: "3600",
+        upsert: true,
+      });
+      if (error) {
+        toast.error(`Failed to upload ${file.name}: ${error.message}`);
+      } else {
+        uploadCount++;
+      }
+    }
+    setUploading(false);
+    if (uploadCount > 0) {
+      toast.success(`${uploadCount} file(s) uploaded`);
+      await refreshUploadedFiles();
+    }
+    e.target.value = "";
+  }
+
+  async function handleDeleteUploadedFile(fileName: string) {
+    const filePath = `deals/${deal.id}/${fileName}`;
+    const { error } = await supabase.storage.from("deal-files").remove([filePath]);
+    if (error) { toast.error("Failed to delete file"); return; }
+    toast.success("File deleted");
+    setUploadedFiles((prev) => prev.filter((f) => f.name !== fileName));
+  }
+
+  async function handleDownloadUploadedFile(fileName: string) {
+    const filePath = `deals/${deal.id}/${fileName}`;
+    const { data, error } = await supabase.storage.from("deal-files").download(filePath);
+    if (error || !data) { toast.error("Failed to download file"); return; }
+    const url = URL.createObjectURL(data);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleDeleteDocLink(linkId: string) {
+    const { error } = await supabase.from("document_links").delete().eq("id", linkId);
+    if (error) { toast.error("Failed to remove link"); return; }
+    setDocLinks((prev) => prev.filter((d) => d.id !== linkId));
+    toast.success("Link removed");
+  }
+
+  async function handleLinkInvoice() {
+    if (!selectedInvoiceId) {
+      toast.error("Pick an invoice to link");
+      return;
+    }
+    setLinkingInvoice(true);
+    const { error } = await supabase
+      .from("invoices")
+      .update({ deal_id: deal.id, updated_at: new Date().toISOString() })
+      .eq("id", selectedInvoiceId);
+    setLinkingInvoice(false);
+    if (error) { toast.error("Failed to link invoice"); return; }
+    toast.success("Invoice linked");
+    setSelectedInvoiceId("");
+    setLinkInvoiceOpen(false);
+    qc.invalidateQueries({ queryKey: ["sales_deal", id] });
+    qc.invalidateQueries({ queryKey: ["invoices"] });
+  }
+
+  async function handleUnlinkInvoice(invoiceId: string) {
+    const { error } = await supabase
+      .from("invoices")
+      .update({ deal_id: null, updated_at: new Date().toISOString() })
+      .eq("id", invoiceId);
+    if (error) { toast.error("Failed to unlink invoice"); return; }
+    toast.success("Invoice unlinked");
+    qc.invalidateQueries({ queryKey: ["sales_deal", id] });
+    qc.invalidateQueries({ queryKey: ["invoices"] });
   }
 
   const isOverdue =
@@ -489,11 +649,20 @@ export default function DealDetailPage() {
 
       {/* Invoices */}
       <Card>
-        <CardHeader className="pb-3">
+        <CardHeader className="pb-3 flex flex-row items-center justify-between">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <DollarSign className="h-4 w-4" />
             Linked Invoices
           </CardTitle>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 text-xs gap-1"
+            onClick={() => { setSelectedInvoiceId(""); setLinkInvoiceOpen(true); }}
+          >
+            <Link2 className="h-3.5 w-3.5" />
+            Link Invoice
+          </Button>
         </CardHeader>
         <CardContent>
           {invoices.length === 0 ? (
@@ -538,22 +707,66 @@ export default function DealDetailPage() {
                       <th className="text-right p-2 font-medium">Paid</th>
                       <th className="text-right p-2 font-medium">Balance</th>
                       <th className="text-left p-2 font-medium">Status</th>
+                      <th className="p-2 w-8" />
                     </tr>
                   </thead>
                   <tbody>
                     {invoices.map((inv) => (
                       <tr
                         key={inv.id}
-                        className="border-b last:border-0 hover:bg-muted/20 cursor-pointer"
-                        onClick={() => navigate(`/invoices/${inv.id}`)}
+                        className="border-b last:border-0 hover:bg-muted/20"
                       >
-                        <td className="p-2 text-primary">{inv.invoice_number ?? "—"}</td>
-                        <td className="p-2">{fmtDate(inv.invoice_date)}</td>
-                        <td className="p-2 text-right">${(inv.total_amount ?? 0).toLocaleString()}</td>
-                        <td className="p-2 text-right">${((inv.total_amount ?? 0) - (inv.balance_due ?? 0)).toLocaleString()}</td>
-                        <td className="p-2 text-right">${(inv.balance_due ?? 0).toLocaleString()}</td>
-                        <td className="p-2">
+                        <td
+                          className="p-2 text-primary cursor-pointer"
+                          onClick={() => navigate(`/invoices/${inv.id}`)}
+                        >
+                          {inv.invoice_number ?? "—"}
+                        </td>
+                        <td
+                          className="p-2 cursor-pointer"
+                          onClick={() => navigate(`/invoices/${inv.id}`)}
+                        >
+                          {fmtDate(inv.invoice_date)}
+                        </td>
+                        <td
+                          className="p-2 text-right cursor-pointer"
+                          onClick={() => navigate(`/invoices/${inv.id}`)}
+                        >
+                          ${(inv.total_amount ?? 0).toLocaleString()}
+                        </td>
+                        <td
+                          className="p-2 text-right cursor-pointer"
+                          onClick={() => navigate(`/invoices/${inv.id}`)}
+                        >
+                          ${((inv.total_amount ?? 0) - (inv.balance_due ?? 0)).toLocaleString()}
+                        </td>
+                        <td
+                          className="p-2 text-right cursor-pointer"
+                          onClick={() => navigate(`/invoices/${inv.id}`)}
+                        >
+                          ${(inv.balance_due ?? 0).toLocaleString()}
+                        </td>
+                        <td
+                          className="p-2 cursor-pointer"
+                          onClick={() => navigate(`/invoices/${inv.id}`)}
+                        >
                           <Badge variant="outline" className="text-xs capitalize">{inv.status}</Badge>
+                        </td>
+                        <td className="p-2">
+                          {inv.deal_id === deal.id && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                              title="Unlink invoice from this deal"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleUnlinkInvoice(inv.id);
+                              }}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -572,23 +785,87 @@ export default function DealDetailPage() {
             <Folder className="h-4 w-4" />
             Files
           </CardTitle>
-          <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setAddLinkOpen(true)}>
-            <Plus className="h-3.5 w-3.5" />
-            Add Link
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs gap-1"
+              onClick={() => setAddLinkOpen(true)}
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Add Link
+            </Button>
+            <label>
+              <Button size="sm" className="h-7 text-xs gap-1 cursor-pointer" asChild disabled={uploading}>
+                <span>
+                  <Plus className="h-3.5 w-3.5" />
+                  {uploading ? "Uploading…" : "Upload File"}
+                </span>
+              </Button>
+              <input
+                type="file"
+                multiple
+                className="hidden"
+                onChange={handleUploadFile}
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png"
+              />
+            </label>
+          </div>
         </CardHeader>
         <CardContent>
-          {docLinks.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No files linked to this deal.</p>
+          {uploadedFiles.length === 0 && docLinks.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No files yet. Upload a file or add a link.</p>
           ) : (
             <div className="flex flex-col gap-2">
+              {uploadedFiles.map((f) => (
+                <div
+                  key={f.id}
+                  className="flex items-center gap-3 p-3 rounded-md border hover:bg-muted/40 transition-colors"
+                >
+                  <FileText className="h-4 w-4 text-primary shrink-0" />
+                  <span className="text-sm flex-1 truncate">{f.name}</span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-xs"
+                    onClick={() => handleDownloadUploadedFile(f.name)}
+                  >
+                    Download
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-xs text-destructive hover:text-destructive"
+                    onClick={() => handleDeleteUploadedFile(f.name)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))}
               {docLinks.map((doc) => (
-                <a key={doc.id} href={doc.url} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-3 p-3 rounded-md border hover:bg-muted/40 transition-colors">
-                  <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <span className="text-sm flex-1">{doc.title}</span>
-                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-                </a>
+                <div
+                  key={doc.id}
+                  className="flex items-center gap-3 p-3 rounded-md border hover:bg-muted/40 transition-colors"
+                >
+                  <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <a
+                    href={doc.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm flex-1 hover:underline truncate"
+                  >
+                    {doc.title}
+                  </a>
+                  <span className="text-xs text-muted-foreground">Link</span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-xs text-destructive hover:text-destructive"
+                    onClick={() => handleDeleteDocLink(doc.id)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               ))}
             </div>
           )}
@@ -729,6 +1006,51 @@ export default function DealDetailPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddLinkOpen(false)}>Cancel</Button>
             <Button onClick={handleAddLink} disabled={savingLink}>Add Link</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Link Invoice Dialog */}
+      <Dialog open={linkInvoiceOpen} onOpenChange={setLinkInvoiceOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Link Invoice to Deal</DialogTitle></DialogHeader>
+          <div className="flex flex-col gap-3">
+            <p className="text-sm text-muted-foreground">
+              {deal.company
+                ? `Showing invoices for ${deal.company.name} that aren't already linked to this deal.`
+                : "Showing invoices that aren't already linked to this deal."}
+            </p>
+            <div className="flex flex-col gap-1.5">
+              <Label>Invoice</Label>
+              <Select value={selectedInvoiceId} onValueChange={setSelectedInvoiceId}>
+                <SelectTrigger>
+                  <SelectValue placeholder={linkableInvoices.length === 0 ? "No available invoices" : "Select an invoice…"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {linkableInvoices.map((inv) => {
+                    const label = inv.invoice_number ?? `INV-${inv.id.slice(0, 8)}`;
+                    const date = inv.invoice_date ? fmtDate(inv.invoice_date) : "—";
+                    const amt = inv.total_amount != null ? `$${inv.total_amount.toLocaleString()}` : "—";
+                    return (
+                      <SelectItem key={inv.id} value={inv.id}>
+                        {label} · {date} · {amt}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+              {linkableInvoices.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  No unlinked invoices found{deal.company ? ` for ${deal.company.name}` : ""}.
+                </p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLinkInvoiceOpen(false)}>Cancel</Button>
+            <Button onClick={handleLinkInvoice} disabled={linkingInvoice || !selectedInvoiceId}>
+              Link Invoice
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

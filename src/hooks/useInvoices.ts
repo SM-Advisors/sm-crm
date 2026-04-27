@@ -8,7 +8,7 @@ export function useInvoices() {
     queryFn: async (): Promise<Invoice[]> => {
       const { data, error } = await supabase
         .from("invoices")
-        .select("*, company:companies(id,name)")
+        .select("*, company:companies(id,name), deal:sales_deals(id,title)")
         .order("invoice_date", { ascending: false });
       if (error) throw error;
       return data as unknown as Invoice[];
@@ -23,7 +23,7 @@ export function useInvoice(id: string) {
     queryFn: async (): Promise<Invoice> => {
       const { data, error } = await supabase
         .from("invoices")
-        .select("*, company:companies(id,name), line_items:invoice_line_items(*), payments(*)")
+        .select("*, company:companies(id,name), deal:sales_deals(id,title), line_items:invoice_line_items(*), payments(*)")
         .eq("id", id)
         .single();
       if (error) throw error;
@@ -36,7 +36,7 @@ export function useUpdateInvoice() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Invoice> & { id: string }) => {
-      const { company, engagement, line_items, payments, ...rest } = updates as Record<string, unknown>;
+      const { company, engagement, deal, line_items, payments, ...rest } = updates as Record<string, unknown>;
       const { data, error } = await supabase
         .from("invoices")
         .update({ ...rest, updated_at: new Date().toISOString() } as Record<string, unknown>)
