@@ -253,6 +253,7 @@ export default function DealDetailPage() {
         probability: editForm.probability ? parseInt(editForm.probability) : null,
         expected_close_date: editForm.expected_close_date || null,
         description: editForm.description.trim() || null,
+        meeting_count: editForm.meeting_count === "" ? 0 : Math.max(0, parseInt(editForm.meeting_count) || 0),
       } as Parameters<typeof updateDeal.mutate>[0],
       {
         onSuccess: () => {
