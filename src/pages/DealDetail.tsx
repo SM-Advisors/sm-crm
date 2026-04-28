@@ -976,6 +976,7 @@ export default function DealDetailPage() {
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
                 </div>
               </div>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
                 <Label>Follow Up Date</Label>
