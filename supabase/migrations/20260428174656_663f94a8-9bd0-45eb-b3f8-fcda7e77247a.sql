@@ -1,0 +1,1 @@
+ALTER TABLE public.sales_deals ADD COLUMN IF NOT EXISTS meeting_count INTEGER NOT NULL DEFAULT 0;

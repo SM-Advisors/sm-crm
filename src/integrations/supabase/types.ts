@@ -1242,6 +1242,7 @@ export type Database = {
           expected_close_date: string | null
           id: string
           lost_reason: string | null
+          meeting_count: number
           notes: string | null
           probability: number | null
           stage: Database["public"]["Enums"]["sales_stage"]
@@ -1263,6 +1264,7 @@ export type Database = {
           expected_close_date?: string | null
           id?: string
           lost_reason?: string | null
+          meeting_count?: number
           notes?: string | null
           probability?: number | null
           stage?: Database["public"]["Enums"]["sales_stage"]
@@ -1284,6 +1286,7 @@ export type Database = {
           expected_close_date?: string | null
           id?: string
           lost_reason?: string | null
+          meeting_count?: number
           notes?: string | null
           probability?: number | null
           stage?: Database["public"]["Enums"]["sales_stage"]
