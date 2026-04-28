@@ -114,6 +114,7 @@ export default function DealDetailPage() {
     probability: "",
     expected_close_date: "",
     description: "",
+    meeting_count: "",
   });
 
   // Sync edit form when deal loads
@@ -128,6 +129,7 @@ export default function DealDetailPage() {
         probability: deal.probability?.toString() ?? "",
         expected_close_date: deal.expected_close_date ?? "",
         description: deal.description ?? "",
+        meeting_count: (deal as any).meeting_count?.toString() ?? "0",
       });
     }
   }, [deal]);
@@ -234,6 +236,7 @@ export default function DealDetailPage() {
       probability: deal.probability?.toString() ?? "",
       expected_close_date: deal.expected_close_date ?? "",
       description: deal.description ?? "",
+      meeting_count: (deal as any).meeting_count?.toString() ?? "0",
     });
     setEditOpen(true);
   }
@@ -250,6 +253,7 @@ export default function DealDetailPage() {
         probability: editForm.probability ? parseInt(editForm.probability) : null,
         expected_close_date: editForm.expected_close_date || null,
         description: editForm.description.trim() || null,
+        meeting_count: editForm.meeting_count === "" ? 0 : Math.max(0, parseInt(editForm.meeting_count) || 0),
       } as Parameters<typeof updateDeal.mutate>[0],
       {
         onSuccess: () => {
@@ -562,7 +566,7 @@ export default function DealDetailPage() {
             )}
             <div className="pt-1">
               <p className="text-xs text-muted-foreground mb-1">Meetings</p>
-              <p className="text-sm font-medium">{meetings.length} meeting{meetings.length !== 1 ? "s" : ""}</p>
+              <p className="text-sm font-medium">{(deal as any).meeting_count ?? 0} meeting{((deal as any).meeting_count ?? 0) !== 1 ? "s" : ""}</p>
             </div>
           </CardContent>
         </Card>
@@ -976,6 +980,10 @@ export default function DealDetailPage() {
                 <Label>Follow Up Date</Label>
                 <Input type="date" value={editForm.expected_close_date} onChange={(e) => setEditForm((f) => ({ ...f, expected_close_date: e.target.value }))} />
               </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label># of Meetings</Label>
+              <Input type="number" min="0" value={editForm.meeting_count} onChange={(e) => setEditForm((f) => ({ ...f, meeting_count: e.target.value }))} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label>Description</Label>
