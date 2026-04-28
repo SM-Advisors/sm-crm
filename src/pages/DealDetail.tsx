@@ -566,7 +566,7 @@ export default function DealDetailPage() {
             )}
             <div className="pt-1">
               <p className="text-xs text-muted-foreground mb-1">Meetings</p>
-              <p className="text-sm font-medium">{meetings.length} meeting{meetings.length !== 1 ? "s" : ""}</p>
+              <p className="text-sm font-medium">{(deal as any).meeting_count ?? 0} meeting{((deal as any).meeting_count ?? 0) !== 1 ? "s" : ""}</p>
             </div>
           </CardContent>
         </Card>
