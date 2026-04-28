@@ -236,6 +236,7 @@ export default function DealDetailPage() {
       probability: deal.probability?.toString() ?? "",
       expected_close_date: deal.expected_close_date ?? "",
       description: deal.description ?? "",
+      meeting_count: (deal as any).meeting_count?.toString() ?? "0",
     });
     setEditOpen(true);
   }
